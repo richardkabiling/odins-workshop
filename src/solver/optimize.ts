@@ -195,19 +195,21 @@ function subtractCost(
 
 export async function optimize(
   inventory: Inventory,
-  presetId: PresetId,
+  atkPct: number,
+  pvp: boolean,
 ): Promise<OptimizeResult> {
-  const preset = PRESETS[presetId];
+  const primaryPresetId = derivePresetId(atkPct, pvp);
+  const preset = PRESETS[primaryPresetId];
   const budgets = poolBudgets(inventory);
+  const { attack: atkBudgets, defense: defBudgets } = splitBudgets(budgets, atkPct);
 
-  // Scale budgets to per-statue allowance for single-statue ILPs.
-  // findBestAllocation checks combined 5-statue cost against full budgets.
-  const singleStatueBudgets: Partial<Record<ConversionSet, number>> = {};
-  for (const s of SETS) singleStatueBudgets[s] = Math.floor((budgets[s] ?? 0) / 5);
+  const primaryKind = preset.primaryTemplate;
+  const primaryBudgets = primaryKind === 'attack' ? atkBudgets : defBudgets;
+  const primarySingleBudgets: Partial<Record<ConversionSet, number>> = {};
+  for (const s of SETS) primarySingleBudgets[s] = Math.floor((primaryBudgets[s] ?? 0) / 5);
 
-  // Primary template: solve 20 single-statue ILPs, then find best 5-tuple allocation
-  const primarySolutions = await precomputePerMinTier(preset.primaryTemplate, presetId, singleStatueBudgets);
-  const primaryAlloc = findBestAllocation(primarySolutions, budgets);
+  const primarySolutions = await precomputePerMinTier(primaryKind, primaryPresetId, primarySingleBudgets);
+  const primaryAlloc = findBestAllocation(primarySolutions, primaryBudgets);
 
   if (!primaryAlloc) {
     return {
@@ -217,20 +219,20 @@ export async function optimize(
     };
   }
 
-  // Secondary template: solve with remaining budget
+  const secondaryPresetId = SIBLING[primaryPresetId];
+  const secondaryKind: TemplateKind = primaryKind === 'attack' ? 'defense' : 'attack';
   const remainingBudgets = subtractCost(budgets, primaryAlloc.totalCost);
-  const secondaryKind: TemplateKind = preset.primaryTemplate === 'attack' ? 'defense' : 'attack';
-  const secondaryPresetId = SIBLING[presetId];
-  const remainingSingleStatueBudgets: Partial<Record<ConversionSet, number>> = {};
-  for (const s of SETS) remainingSingleStatueBudgets[s] = Math.floor((remainingBudgets[s] ?? 0) / 5);
-  const secondarySolutions = await precomputePerMinTier(secondaryKind, secondaryPresetId, remainingSingleStatueBudgets);
+  const secondarySingleBudgets: Partial<Record<ConversionSet, number>> = {};
+  for (const s of SETS) secondarySingleBudgets[s] = Math.floor((remainingBudgets[s] ?? 0) / 5);
+
+  const secondarySolutions = await precomputePerMinTier(secondaryKind, secondaryPresetId, secondarySingleBudgets);
   const secondaryAlloc = findBestAllocation(secondarySolutions, remainingBudgets);
 
   const emptyStatues: StatueTemplate[] = Array.from({ length: 5 }, () => ({ feathers: [], minTier: 0 }));
   const secondaryStatues = secondaryAlloc?.statues ?? emptyStatues;
 
-  const attackStatues = preset.primaryTemplate === 'attack' ? primaryAlloc.statues : secondaryStatues;
-  const defenseStatues = preset.primaryTemplate === 'defense' ? primaryAlloc.statues : secondaryStatues;
+  const attackStatues = primaryKind === 'attack' ? primaryAlloc.statues : secondaryStatues;
+  const defenseStatues = primaryKind === 'defense' ? primaryAlloc.statues : secondaryStatues;
 
   const spentPerSet = { ...primaryAlloc.totalCost };
   if (secondaryAlloc) {
