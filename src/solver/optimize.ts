@@ -36,9 +36,12 @@ function poolBudgets(inventory: Inventory): Partial<Record<ConversionSet, number
 
 /**
  * Check inventory has ≥4 distinct orange + ≥1 distinct purple eligible feathers
- * for each statue kind. Returns diagnostics for failed constraints, or [] if all ok.
+ * accessible for each statue kind. A feather is "accessible" if the user has any
+ * feathers in its conversion set (since feathers within the same set can be freely
+ * converted to one another). Returns diagnostics for failed constraints, or [] if all ok.
  */
 function checkInventory(inventory: Inventory): InventoryDiagnostic[] {
+  const budgetBySet = poolBudgets(inventory);
   const diagnostics: InventoryDiagnostic[] = [];
   for (const kind of ['attack', 'defense'] as TemplateKind[]) {
     for (const [rarity, need] of [['Orange', 4], ['Purple', 1]] as ['Orange'|'Purple', number][]) {
@@ -46,12 +49,13 @@ function checkInventory(inventory: Inventory): InventoryDiagnostic[] {
         (kind === 'attack' ? f.type === 'Attack' || f.type === 'Hybrid' : f.type === 'Defense' || f.type === 'Hybrid')
         && f.rarity === rarity,
       );
-      const present = eligible.filter(f => (inventory.perFeather[f.id as FeatherId] ?? 0) > 0);
-      if (present.length < need) {
+      // A feather is accessible if the user has any feathers in its conversion set
+      const accessible = eligible.filter(f => (budgetBySet[f.set] ?? 0) > 0);
+      if (accessible.length < need) {
         const missing = eligible
-          .filter(f => !(inventory.perFeather[f.id as FeatherId] ?? 0))
+          .filter(f => !(budgetBySet[f.set] ?? 0))
           .map(f => f.id as FeatherId);
-        diagnostics.push({ kind, rarity, need, have: present.length, missing });
+        diagnostics.push({ kind, rarity, need, have: accessible.length, missing });
       }
     }
   }
@@ -65,20 +69,34 @@ interface SingleStatueSolution {
 }
 
 /**
- * Solve a single-statue ILP for each minTier.
- * `budgets` is used as an upper bound in the ILP — pass the total budget so
- * the solver isn't artificially constrained to 1/5th of available resources.
- * The joint allocation enforces the real shared-pool constraint.
+ * Precompute single-statue solutions across a range of budget caps.
+ *
+ * Iterates budget fractions (1/20 … 20/20 of totalBudgets) and for each
+ * cap solves a single-statue ILP (minTier=1, maximise score within the cap).
+ * This produces a gradient from cheapest→most-expensive solutions so that
+ * greedyAllocate can start all 10 statues at a low budget fraction (which
+ * fits within the shared pool) and then upgrade incrementally.
+ *
+ * Previously the loop ran over minTier 1..20 with the FULL budget, causing
+ * every solution to consume nearly the entire pool — making the 10-statue
+ * initial placement impossible.
  */
-async function precomputePerMinTier(
+async function precomputePerBudgetFraction(
   kind: TemplateKind,
   statWeights: Partial<Record<StatKey, number>>,
-  budgets: Partial<Record<ConversionSet, number>>,
+  totalBudgets: Partial<Record<ConversionSet, number>>,
 ): Promise<Map<number, SingleStatueSolution>> {
   const results = new Map<number, SingleStatueSolution>();
+  const STEPS = 20;
 
-  for (let minTier = 1; minTier <= 20; minTier++) {
-    const model = buildModel(kind, statWeights, minTier, budgets);
+  for (let step = 1; step <= STEPS; step++) {
+    // Budget cap for this step: step/STEPS of the total pool
+    const cappedBudgets: Partial<Record<ConversionSet, number>> = {};
+    for (const s of SETS) {
+      cappedBudgets[s] = Math.floor(((totalBudgets[s] ?? 0) * step) / STEPS);
+    }
+
+    const model = buildModel(kind, statWeights, 1, cappedBudgets);
     let result;
     try { result = await solve(model); } catch { continue; }
     if (result.result.status !== 5) continue;
@@ -94,8 +112,13 @@ async function precomputePerMinTier(
     }
     if (chosen.length !== 5) continue;
 
-    const flat = flatBonusScore(kind, statWeights, minTier);
+    const actualMinTier = Math.min(...chosen.map(c => c.tier));
+    const flat = flatBonusScore(kind, statWeights, actualMinTier);
     const score = result.result.z + flat;
+
+    // Skip duplicate solutions (same score as the previous step)
+    const prevSolution = results.get(step - 1);
+    if (prevSolution && Math.abs(prevSolution.score - score) < 1e-9) continue;
 
     const costPerSet: Partial<Record<ConversionSet, number>> = {};
     for (const { featherId, tier } of chosen) {
@@ -103,8 +126,8 @@ async function precomputePerMinTier(
       costPerSet[def.set] = (costPerSet[def.set] ?? 0) + (def.tiers[tier]?.totalCost ?? 0);
     }
 
-    results.set(minTier, {
-      template: { feathers: chosen.map(c => ({ feather: c.featherId, tier: c.tier })), minTier },
+    results.set(step, {
+      template: { feathers: chosen.map(c => ({ feather: c.featherId, tier: c.tier })), minTier: actualMinTier },
       score,
       costPerSet,
     });
@@ -233,8 +256,8 @@ export async function optimize(
   } catch { /* ignore, proceed to greedy */ }
 
   const [attackSolutions, defenseSolutions] = await Promise.all([
-    precomputePerMinTier('attack', statWeights, totalBudgets),
-    precomputePerMinTier('defense', statWeights, totalBudgets),
+    precomputePerBudgetFraction('attack', statWeights, totalBudgets),
+    precomputePerBudgetFraction('defense', statWeights, totalBudgets),
   ]);
 
   const result = greedyAllocate(attackSolutions, defenseSolutions, totalBudgets);

@@ -1,5 +1,4 @@
 import type { StatKey, StatueTemplate, SetBonus } from './types';
-import type { Preset } from './presets';
 import { featherById } from '../data/feathers.generated';
 
 /**

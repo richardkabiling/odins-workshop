@@ -1,0 +1,80 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f4f4f8;
+  --surface: #ffffff;
+  --surface2: #eeeef4;
+  --border: #d0d0de;
+  --accent: #5b4fcf;
+  --accent2: #b86e10;
+  --text: #18182a;
+  --muted: #6a6a7a;
+  --danger: #c0392b;
+  --green: #2e7d52;
+  --radius: 8px;
+  --font: system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+h1 { font-size: 1.5rem; font-weight: 700; }
+h2 { font-size: 1.1rem; font-weight: 600; }
+h3 { font-size: 0.95rem; font-weight: 600; }
+
+a { color: var(--accent); }
+
+input[type="number"] {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 4px 8px;
+  width: 80px;
+  font-size: 14px;
+}
+input[type="number"]:focus { outline: 2px solid var(--accent); }
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 14px;
+}
+
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 24px;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+button.primary:hover { opacity: 0.85; }
+button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge.orange { background: #f5e6d0; color: #8a4a00; border: 1px solid #d4a05088; }
+.badge.purple { background: #ede0f8; color: #6a009a; border: 1px solid #b060d888; }
+.badge.atk    { background: #fce8e8; color: #a01010; border: 1px solid #e0808088; }
+.badge.def    { background: #e8e8fc; color: #1010a0; border: 1px solid #8080e088; }
+.badge.hybrid { background: #e8f5e8; color: #105010; border: 1px solid #80c08088; }

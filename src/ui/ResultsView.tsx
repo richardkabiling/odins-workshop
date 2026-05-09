@@ -7,6 +7,7 @@ import { computeStatueStats, computeRawStats } from '../domain/scoring';
 import { STAT_LABELS, ATTACK_STATS, DEFENSE_STATS, PVE_STATS, PVP_STATS } from '../data/statCategories';
 import { type StatRanking, weightsFromRanking } from '../domain/ranking';
 import { featherImages } from './featherImages';
+import { RarityDot, TypeChip } from './FeatherBadges';
 
 function toRoman(n: number): string {
   const table: [number, string][] = [
@@ -240,10 +241,12 @@ function FeatherRow({ feather, tier }: { feather: string; tier: number }) {
 
       {/* Name / badges / cost */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontWeight: 600 }}>{featherDisplayName(feather)}</span>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <span className={`badge ${def.rarity.toLowerCase()}`} style={{ fontSize: 9, padding: '1px 4px' }}>{def.rarity}</span>
-          <span className={`badge ${TYPE_CLASS[def.type]}`} style={{ fontSize: 9, padding: '1px 4px' }}>{def.type}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <RarityDot rarity={def.rarity} />
+          <span style={{ fontWeight: 600 }}>{featherDisplayName(feather)}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <TypeChip type={def.type} />
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <span style={{ background: 'var(--surface2)', borderRadius: 3, padding: '0 5px', fontSize: 11 }}>T{tier}</span>

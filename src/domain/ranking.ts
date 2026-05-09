@@ -11,6 +11,12 @@ export interface StatRanking {
    *  next. Default 1.5. */
   ratio: number;
   pvp: boolean;
+  /**
+   * Priority gaps between adjacent stats. gaps[i] >= 0 is the number of geometric
+   * steps between order[i] and order[i+1]. gaps[i]=0 means same priority.
+   * Length must be order.length - 1. Defaults to all 1s if absent.
+   */
+  gaps?: number[];
 }
 
 /**
@@ -23,9 +29,16 @@ export function weightsFromRanking(
 ): Partial<Record<StatKey, number>> {
   if (r.ratio <= 0) throw new RangeError(`StatRanking.ratio must be > 0, got ${r.ratio}`);
   const n = r.order.length;
+  const gaps = r.gaps ?? Array.from({ length: n - 1 }, () => 1);
+  // level[i] = cumulative gap steps from stat i to the bottom
+  // weight(i) = ratio ^ level[i]; same level => same weight
+  const levels: number[] = new Array(n).fill(0);
+  for (let i = n - 2; i >= 0; i--) {
+    levels[i] = levels[i + 1] + (gaps[i] ?? 1);
+  }
   const result: Partial<Record<StatKey, number>> = {};
   for (let i = 0; i < n; i++) {
-    result[r.order[i]] = Math.pow(r.ratio, n - 1 - i);
+    result[r.order[i]] = Math.pow(r.ratio, levels[i]);
   }
   return result;
 }

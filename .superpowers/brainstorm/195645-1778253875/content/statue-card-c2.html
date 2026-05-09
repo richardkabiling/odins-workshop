@@ -1,0 +1,95 @@
+<style>
+  .statue-card {
+    background: #fff; border: 1px solid #d0d0de; border-radius: 8px; padding: 14px;
+    width: 260px; font-size: 12px; color: #18182a; font-family: system-ui, sans-serif;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .statue-card h3 { font-size: 13px; font-weight: 600; }
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: #6a6a7a; margin: 8px 0 4px;
+  }
+  .divider { border: none; border-top: 1px solid #d0d0de; margin: 6px 0; }
+  .badge-o { background:#f5e6d0;color:#8a4a00;border:1px solid #d4a05088;border-radius:4px;padding:1px 4px;font-size:9px;font-weight:600; }
+  .badge-p { background:#ede0f8;color:#6a009a;border:1px solid #b060d888;border-radius:4px;padding:1px 4px;font-size:9px;font-weight:600; }
+  .tier-tag { background:#eeeef4;border-radius:3px;padding:0 5px;font-size:11px; }
+  .cost-tag { color:#6a6a7a;font-size:10px; }
+  .row { display:flex;justify-content:space-between;align-items:center;gap:4px;margin-bottom:3px; }
+  .muted { color:#6a6a7a; }
+  .green { color:#2e7d52;font-weight:600; }
+  .stat-val { font-weight:600; }
+  .arrow { color:#aaa;font-size:10px;margin:0 2px; }
+  .img-lg { width:48px;height:48px;background:#f0f0f8;border-radius:6px;display:block; }
+
+  .feather-grid { display:flex; gap:6px; flex-wrap:wrap; }
+  .feather-item { display:flex;flex-direction:column;align-items:center;gap:2px;width:48px; }
+  .feather-name { font-size:9px;font-weight:600;text-align:center; }
+  .feather-tier { font-size:9px;color:#5b4fcf;font-weight:700; }
+  .feather-cost { font-size:9px;color:#6a6a7a; }
+
+  .preview-wrap { display:flex;justify-content:center;padding:8px 0 4px; }
+  .note { font-size:12px;color:#6a6a7a;text-align:center;margin-top:8px; }
+</style>
+
+<h2>Option C — with T1 cost per feather</h2>
+<p class="subtitle">Large images in a grid, each showing name · tier · T1 cost</p>
+
+<div class="preview-wrap">
+  <div class="statue-card">
+    <div class="row"><h3>Attack #1</h3><span class="tier-tag">T5 set</span></div>
+
+    <div class="section-label">Feathers</div>
+    <div class="feather-grid">
+      <div class="feather-item">
+        <span class="img-lg"></span>
+        <span class="badge-o">O</span>
+        <span class="feather-name">Space</span>
+        <span class="feather-tier">T7</span>
+        <span class="feather-cost">210 T1</span>
+      </div>
+      <div class="feather-item">
+        <span class="img-lg"></span>
+        <span class="badge-o">O</span>
+        <span class="feather-name">Time</span>
+        <span class="feather-tier">T6</span>
+        <span class="feather-cost">105 T1</span>
+      </div>
+      <div class="feather-item">
+        <span class="img-lg"></span>
+        <span class="badge-o">O</span>
+        <span class="feather-name">Divine</span>
+        <span class="feather-tier">T5</span>
+        <span class="feather-cost">42 T1</span>
+      </div>
+      <div class="feather-item">
+        <span class="img-lg"></span>
+        <span class="badge-o">O</span>
+        <span class="feather-name">Nature</span>
+        <span class="feather-tier">T5</span>
+        <span class="feather-cost">42 T1</span>
+      </div>
+      <div class="feather-item">
+        <span class="img-lg"></span>
+        <span class="badge-p">P</span>
+        <span class="feather-name">Light</span>
+        <span class="feather-tier">T5</span>
+        <span class="feather-cost">42 T1</span>
+      </div>
+    </div>
+
+    <hr class="divider">
+    <div class="section-label">Set Bonuses (T5)</div>
+    <div class="row"><span class="muted">PATK flat</span><span class="green">+120</span></div>
+    <div class="row"><span class="muted">Attack %</span><span class="green">+8%</span></div>
+    <div class="row"><span class="muted">PvE %</span><span class="green">+6%</span></div>
+
+    <hr class="divider">
+    <div class="section-label">Total Stats</div>
+    <div class="row"><span class="muted">PATK</span><span><span class="muted" style="font-size:10px">1840</span><span class="arrow">→</span><span class="stat-val">2107</span></span></div>
+    <div class="row"><span class="muted">MATK</span><span><span class="muted" style="font-size:10px">980</span><span class="arrow">→</span><span class="stat-val">1118</span></span></div>
+    <div class="row"><span class="muted">Ignore PDEF</span><span><span class="muted" style="font-size:10px">240</span><span class="arrow">→</span><span class="stat-val">259</span></span></div>
+    <div class="row"><span class="muted">PvE DMG Bonus</span><span><span class="muted" style="font-size:10px">180</span><span class="arrow">→</span><span class="stat-val">191</span></span></div>
+  </div>
+</div>
+
+<p class="note">Does this look right? Let me know in the terminal if you want any tweaks.</p>

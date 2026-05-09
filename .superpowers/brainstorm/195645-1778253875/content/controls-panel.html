@@ -1,0 +1,116 @@
+<style>
+  body { font-family: system-ui, sans-serif; }
+  .panel {
+    background: #fff; border: 1px solid #d0d0de; border-radius: 8px; padding: 16px;
+    width: 300px; font-size: 13px; color: #18182a;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .panel h2 { font-size: 1.1rem; font-weight: 600; margin: 0; }
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: #6a6a7a; margin-bottom: 6px;
+  }
+  .muted { color: #6a6a7a; font-size: 11px; }
+
+  /* Toggle */
+  .toggle-group { display: flex; border: 1px solid #d0d0de; border-radius: 6px; overflow: hidden; }
+  .toggle-btn {
+    flex: 1; padding: 8px 0; text-align: center; font-size: 13px; font-weight: 600;
+    cursor: pointer; background: #fff; color: #6a6a7a; border: none; transition: all .15s;
+  }
+  .toggle-btn.active { background: #5b4fcf; color: #fff; }
+
+  /* Slider */
+  .slider-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .slider-labels { display: flex; justify-content: space-between; font-size: 11px; }
+  .slider-label-atk { color: #a01010; font-weight: 600; }
+  .slider-label-def { color: #1010a0; font-weight: 600; }
+  input[type=range] {
+    width: 100%; accent-color: #5b4fcf; height: 4px; cursor: pointer;
+  }
+  .slider-value {
+    text-align: center; font-size: 12px; color: #6a6a7a;
+  }
+  .slider-value strong { color: #18182a; }
+
+  /* Optimize button */
+  .btn-primary {
+    background: #5b4fcf; color: #fff; border: none; border-radius: 8px;
+    padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+
+  .preview-wrap { display: flex; justify-content: center; padding: 8px 0; }
+  .note { font-size: 12px; color: #6a6a7a; text-align: center; margin-top: 8px; }
+
+  /* interactivity for demo */
+  .toggle-btn { font-family: system-ui, sans-serif; }
+</style>
+
+<h2>Controls Panel Redesign</h2>
+<p class="subtitle">PvE/PvP toggle + Attack/Defense slider replacing the 4 preset radio buttons</p>
+
+<div class="preview-wrap">
+  <div class="panel">
+    <h2>Optimization</h2>
+
+    <div>
+      <div class="section-label">Content Type</div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" onclick="setToggle(this, 'pve')">PvE</button>
+        <button class="toggle-btn" onclick="setToggle(this, 'pvp')">PvP</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Attack / Defense Priority</div>
+      <div class="slider-wrap">
+        <div class="slider-labels">
+          <span class="slider-label-atk">Attack</span>
+          <span class="slider-label-def">Defense</span>
+        </div>
+        <input type="range" min="0" max="100" step="10" value="70"
+               oninput="updateSlider(this.value)" id="atkSlider">
+        <div class="slider-value" id="sliderLabel">
+          <strong>70% Attack</strong> · 30% Defense
+        </div>
+      </div>
+      <p class="muted" style="margin-top:6px;line-height:1.4">
+        Attack statues are optimized first and get 70% of your feather budget. Defense uses the remainder.
+      </p>
+    </div>
+
+    <button class="btn-primary">Optimize</button>
+
+    <p class="muted" style="line-height:1.4">
+      Assumption: all 5 statues of each type use an identical feather composition and tier assignment.
+    </p>
+  </div>
+</div>
+
+<script>
+function setToggle(btn, mode) {
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function updateSlider(val) {
+  const atk = parseInt(val);
+  const def = 100 - atk;
+  let label;
+  if (atk === 50) label = '<strong>50% Attack · 50% Defense</strong> — equal priority';
+  else if (atk > 50) label = `<strong>${atk}% Attack</strong> · ${def}% Defense`;
+  else label = `${atk}% Attack · <strong>${def}% Defense</strong>`;
+  document.getElementById('sliderLabel').innerHTML = label;
+
+  const desc = document.querySelector('.muted[style]');
+  if (atk > 50) {
+    desc.textContent = `Attack statues are optimized first and get ${atk}% of your feather budget. Defense uses the remainder.`;
+  } else if (atk === 50) {
+    desc.textContent = `Budget is split evenly. Attack and defense statues get equal feather allocation.`;
+  } else {
+    desc.textContent = `Defense statues are optimized first and get ${def}% of your feather budget. Attack uses the remainder.`;
+  }
+}
+</script>
+
+<p class="note">Try dragging the slider and toggling PvE/PvP. Let me know in the terminal if anything needs adjusting.</p>

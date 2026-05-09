@@ -1,0 +1,6 @@
+Space = 1035
+Light = 698
+Sky = 570
+Day = 570
+Justice = 420
+Stats = 676

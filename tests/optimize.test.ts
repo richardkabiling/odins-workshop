@@ -54,6 +54,33 @@ describe('weightsFromRanking', () => {
     expect(weights[order[n - 1]]).toBeCloseTo(1.0);
   });
 
+  it('gaps=0 between two stats gives them equal weight', () => {
+    const ranking: StatRanking = {
+      order: ['PATK', 'MATK', 'PDMG'] as StatKey[],
+      ratio: 2.0,
+      pvp: false,
+      gaps: [1, 0], // PATK > MATK == PDMG
+    };
+    const weights = weightsFromRanking(ranking);
+    // levels: PDMG=0, MATK=0, PATK=1
+    expect(weights['MATK']).toBeCloseTo(weights['PDMG']!);
+    expect(weights['PATK']).toBeCloseTo(2.0 * weights['MATK']!);
+  });
+
+  it('gap=2 doubles the multiplier step vs gap=1', () => {
+    const ranking: StatRanking = {
+      order: ['PATK', 'MATK', 'PDMG'] as StatKey[],
+      ratio: 2.0,
+      pvp: false,
+      gaps: [2, 1], // PATK 4x MATK, MATK 2x PDMG
+    };
+    const weights = weightsFromRanking(ranking);
+    // levels: PDMG=0, MATK=1, PATK=3
+    expect(weights['PDMG']).toBeCloseTo(1.0);
+    expect(weights['MATK']).toBeCloseTo(2.0);
+    expect(weights['PATK']).toBeCloseTo(8.0); // 2^3
+  });
+
   it('throws RangeError when ratio=0', () => {
     const ranking: StatRanking = {
       order: ['PATK'] as StatKey[],

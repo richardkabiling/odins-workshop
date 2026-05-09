@@ -13,15 +13,14 @@ export function OptimizationControls({ atkPct, pvp, onAtkPctChange, onPvpChange,
   const defPct = 100 - atkPct;
 
   function sliderLabel() {
-    if (atkPct === 50) return '50% Attack · 50% Defense';
-    if (atkPct > 50) return `${atkPct}% Attack · ${defPct}% Defense`;
-    return `${atkPct}% Attack · ${defPct}% Defense`;
+    if (atkPct === 50) return '50% Offensive · 50% Defensive';
+    return `${atkPct}% Offensive · ${defPct}% Defensive`;
   }
 
   function sliderDesc() {
     if (atkPct === 50) return 'Budget split equally. Attack statues are optimized first.';
-    if (atkPct > 50) return `Attack statues are optimized first with ${atkPct}% of your feather budget.`;
-    return `Defense statues are optimized first with ${defPct}% of your feather budget.`;
+    if (atkPct > 50) return `Attack statues optimized first with ${atkPct}% of your feather budget. All statues score offensive stats.`;
+    return `Defense statues optimized first with ${defPct}% of your feather budget. All statues score defensive stats.`;
   }
 
   const toggleBase: CSSProperties = {
@@ -55,11 +54,11 @@ export function OptimizationControls({ atkPct, pvp, onAtkPctChange, onPvpChange,
 
       <div>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
-          Attack / Defense Priority
+          Offensive / Defensive Priority
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-          <span style={{ color: '#a01010', fontWeight: 600 }}>Attack</span>
-          <span style={{ color: '#1010a0', fontWeight: 600 }}>Defense</span>
+          <span style={{ color: '#1010a0', fontWeight: 600 }}>Defensive</span>
+          <span style={{ color: '#a01010', fontWeight: 600 }}>Offensive</span>
         </div>
         <input
           type="range"
