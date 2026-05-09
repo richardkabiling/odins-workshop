@@ -31,12 +31,6 @@ const PCT_LABELS: Record<string, string> = {
   pvp: 'PvP %',
 };
 
-const TYPE_CLASS: Record<string, string> = {
-  Attack: 'atk',
-  Defense: 'def',
-  Hybrid: 'hybrid',
-};
-
 const ALL_STAT_KEYS: StatKey[] = [
   ...ATTACK_STATS, ...DEFENSE_STATS, ...PVE_STATS, ...PVP_STATS, 'INTDEXSTR', 'VIT',
 ];

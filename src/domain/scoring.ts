@@ -1,4 +1,8 @@
 import type { StatKey, StatueTemplate, SetBonus } from './types';
+
+export interface Preset {
+  statWeights: Partial<Record<StatKey, number>>;
+}
 import { featherById } from '../data/feathers.generated';
 
 /**

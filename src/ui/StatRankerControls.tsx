@@ -232,10 +232,6 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
     setSelected(new Set());
   }
 
-  function handleRatioChange(e: React.ChangeEvent<HTMLInputElement>) {
-    onChange({ ...ranking, ratio: Number(e.target.value) });
-  }
-
   /** Increase gap below stat i (makes stat i higher priority vs stat i+1). */
   function increaseGapBelow(i: number) {
     if (i >= ranking.order.length - 1) return;

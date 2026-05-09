@@ -12,10 +12,6 @@ import { makeEmptyStatues } from './ui/SimulatorView';
 
 const DEFAULT_INVENTORY: Inventory = { perFeather: {} };
 
-function makeEmpty10(): SimStatue[][] {
-  return Array.from({ length: 5 }, () => Array<SimStatue[number]>(5).fill(null));
-}
-
 export default function App() {
   // Bootstrap from URL on first render
   const initialParams = new URLSearchParams(window.location.search);
@@ -40,10 +36,10 @@ export default function App() {
   const [simInventory, setSimInventory] = useState<Inventory>(initialSimUrl?.inventory ?? DEFAULT_INVENTORY);
   const [simFormKey, setSimFormKey] = useState(0);
   const [attackStatues, setAttackStatues] = useState<SimStatue[]>(
-    (initialSimUrl?.attack as SimStatue[] | undefined) ?? makeEmpty10(),
+    (initialSimUrl?.attack as SimStatue[] | undefined) ?? makeEmptyStatues(),
   );
   const [defenseStatues, setDefenseStatues] = useState<SimStatue[]>(
-    (initialSimUrl?.defense as SimStatue[] | undefined) ?? makeEmpty10(),
+    (initialSimUrl?.defense as SimStatue[] | undefined) ?? makeEmptyStatues(),
   );
 
   // ── URL helpers ──────────────────────────────────────────────────────────
@@ -111,8 +107,8 @@ export default function App() {
   }
 
   function handleSimClear() {
-    const emptyAtk = makeEmpty10();
-    const emptyDef = makeEmpty10();
+    const emptyAtk = makeEmptyStatues();
+    const emptyDef = makeEmptyStatues();
     setSimInventory(DEFAULT_INVENTORY);
     setAttackStatues(emptyAtk);
     setDefenseStatues(emptyDef);
