@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Inventory, Solution } from './domain/types';
-import type { Failure } from './ui/ResultsView';
+import type { Inventory, Solution, Failure } from './domain/types';
 import { DEFAULT_RANKING } from './domain/ranking';
 import { optimize } from './solver/optimize';
 import { InventoryForm } from './ui/InventoryForm';

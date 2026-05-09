@@ -75,3 +75,7 @@ export interface InventoryDiagnostic {
   have: number;          // how many distinct eligible feathers user has
   missing: FeatherId[];  // eligible feather IDs user has 0 of
 }
+
+export type Failure =
+  | { kind: 'generic'; message: string }
+  | { kind: 'inventory'; diagnostics: InventoryDiagnostic[] };

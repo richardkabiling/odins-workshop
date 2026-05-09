@@ -1,16 +1,12 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import type { Solution, StatueTemplate, ConversionSet, StatKey, InventoryDiagnostic } from '../domain/types';
+import type { Solution, StatueTemplate, ConversionSet, StatKey, Failure } from '../domain/types';
 import { featherById } from '../data/feathers.generated';
 import { getAttackBonus, getDefenseBonus } from '../data/setBonuses.generated';
 import { computeStatueStats, computeRawStats } from '../domain/scoring';
 import { STAT_LABELS, ATTACK_STATS, DEFENSE_STATS, PVE_STATS, PVP_STATS } from '../data/statCategories';
 import { makeBlendedWeights } from '../domain/presets';
 import { featherImages } from './featherImages';
-
-export type Failure =
-  | { kind: 'generic'; message: string }
-  | { kind: 'inventory'; diagnostics: InventoryDiagnostic[] };
 
 function toRoman(n: number): string {
   const table: [number, string][] = [
@@ -66,8 +62,8 @@ export function ResultsView({ solution, failure, atkPct, pvp }: Props) {
         <div style={{ fontWeight: 600, marginBottom: 8 }}>
           Insufficient feathers to build 10 statues:
         </div>
-        {failure.diagnostics.map((d, i) => (
-          <div key={i} style={{ marginBottom: 6 }}>
+        {failure.diagnostics.map((d) => (
+          <div key={`${d.kind}-${d.rarity}`} style={{ marginBottom: 6 }}>
             <div>
               • {d.kind.charAt(0).toUpperCase() + d.kind.slice(1)} statues need {d.need} distinct {d.rarity.toLowerCase()} feather{d.need !== 1 ? 's' : ''}; you have {d.have}.
             </div>
