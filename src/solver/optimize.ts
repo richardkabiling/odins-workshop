@@ -2,23 +2,20 @@
  * Public optimizer entry point.
  *
  * Algorithm:
- *  1. Pool per-feather inventory into per-conversion-set budgets.
- *  2. Both attack and defense statue templates use the same blended stat weights
- *     derived from offensivePct. This maximizes total stats across all 10 statues
- *     weighted by the user's offensive/defensive preference.
- *  3. For each template kind, precompute the best single-statue solution for each
- *     minTier ∈ {1..20} via ILP, using the full total budget as the per-statue
- *     upper bound (so hybrid feathers in defense statues can score offensive stats).
- *  4. Enumerate all valid (attack 5-tuple, defense 5-tuple) pairs and find the
- *     combination maximising total score within the shared budget.
- *     Both sides compete for the same pool — no upfront budget split.
+ *  1. Pre-check inventory: ≥4 orange + ≥1 purple eligible feathers per statue kind.
+ *  2. Pool per-feather inventory into per-conversion-set budgets.
+ *  3. Phase 1: joint ILP at tier=1 checks global feasibility (can 10 statues fit the budget?).
+ *  4. Phase 2: For each template kind, precompute best single-statue solution per minTier (1..20)
+ *     using full pool budget as a permissive upper bound.
+ *  5. Greedy upgrade: start all statues at lowest feasible tier, repeatedly upgrade the statue
+ *     whose tier-bump gives the largest score gain that fits the shared pool.
  */
 
 import type { ConversionSet, FeatherId, Inventory, InventoryDiagnostic, Solution, StatueTemplate, StatKey } from '../domain/types';
-import type { TemplateKind } from '../domain/presets';
-import { makeBlendedWeights } from '../domain/presets';
+import type { TemplateKind, StatRanking } from '../domain/ranking';
+import { weightsFromRanking } from '../domain/ranking';
 import { feathers, featherById } from '../data/feathers.generated';
-import { buildModel, flatBonusScore } from './buildModel';
+import { buildModel, buildPhase1Model, flatBonusScore } from './buildModel';
 import { solve } from './glpk';
 
 export type OptimizeResult =
@@ -28,26 +25,6 @@ export type OptimizeResult =
 
 const SETS: ConversionSet[] = ['STDN', 'LD', 'DN', 'ST', 'Purple'];
 
-/** Which statue type is primary (gets first pick of budget). */
-export function derivePrimaryKind(offensivePct: number): TemplateKind {
-  return offensivePct >= 50 ? 'attack' : 'defense';
-}
-
-export function splitBudgets(
-  total: Partial<Record<ConversionSet, number>>,
-  offensivePct: number,
-): { attack: Partial<Record<ConversionSet, number>>; defense: Partial<Record<ConversionSet, number>> } {
-  const attack: Partial<Record<ConversionSet, number>> = {};
-  const defense: Partial<Record<ConversionSet, number>> = {};
-  for (const s of SETS) {
-    const t = total[s] ?? 0;
-    const a = Math.floor(t * offensivePct / 100);
-    attack[s] = a;
-    defense[s] = t - a;
-  }
-  return { attack, defense };
-}
-
 function poolBudgets(inventory: Inventory): Partial<Record<ConversionSet, number>> {
   const budgets: Partial<Record<ConversionSet, number>> = {};
   for (const featherDef of feathers) {
@@ -55,6 +32,30 @@ function poolBudgets(inventory: Inventory): Partial<Record<ConversionSet, number
     budgets[featherDef.set] = (budgets[featherDef.set] ?? 0) + count;
   }
   return budgets;
+}
+
+/**
+ * Check inventory has ≥4 distinct orange + ≥1 distinct purple eligible feathers
+ * for each statue kind. Returns diagnostics for failed constraints, or [] if all ok.
+ */
+function checkInventory(inventory: Inventory): InventoryDiagnostic[] {
+  const diagnostics: InventoryDiagnostic[] = [];
+  for (const kind of ['attack', 'defense'] as TemplateKind[]) {
+    for (const [rarity, need] of [['Orange', 4], ['Purple', 1]] as ['Orange'|'Purple', number][]) {
+      const eligible = feathers.filter(f =>
+        (kind === 'attack' ? f.type === 'Attack' || f.type === 'Hybrid' : f.type === 'Defense' || f.type === 'Hybrid')
+        && f.rarity === rarity,
+      );
+      const present = eligible.filter(f => (inventory.perFeather[f.id as FeatherId] ?? 0) > 0);
+      if (present.length < need) {
+        const missing = eligible
+          .filter(f => !(inventory.perFeather[f.id as FeatherId] ?? 0))
+          .map(f => f.id as FeatherId);
+        diagnostics.push({ kind, rarity, need, have: present.length, missing });
+      }
+    }
+  }
+  return diagnostics;
 }
 
 interface SingleStatueSolution {
@@ -213,28 +214,35 @@ function greedyAllocate(
 
 export async function optimize(
   inventory: Inventory,
-  offensivePct: number,
-  pvp: boolean,
+  ranking: StatRanking,
 ): Promise<OptimizeResult> {
-  const statWeights = makeBlendedWeights(offensivePct, pvp);
+  const inventoryDiagnostics = checkInventory(inventory);
+  if (inventoryDiagnostics.length > 0) {
+    return { ok: false, reason: 'inventory', diagnostics: inventoryDiagnostics };
+  }
+
+  const statWeights = weightsFromRanking(ranking);
   const totalBudgets = poolBudgets(inventory);
 
-  // Per-statue ILP budget: floor(total / 5). Worst case one kind gets all budget
-  // across its 5 statues, so each statue can spend at most total / 5. The greedy's
-  // per-upgrade delta check enforces the real shared-pool constraint at runtime.
-  const perStatueBudgets: Partial<Record<ConversionSet, number>> = {};
-  for (const s of SETS) perStatueBudgets[s] = Math.floor((totalBudgets[s] ?? 0) / 5);
+  // Phase 1: joint feasibility check at tier 1
+  const phase1Model = buildPhase1Model(statWeights, totalBudgets);
+  let phase1Feasible = false;
+  try {
+    const p1Result = await solve(phase1Model);
+    phase1Feasible = p1Result.result.status === 5; // GLP_OPT
+  } catch { /* ignore, proceed to greedy */ }
 
   const [attackSolutions, defenseSolutions] = await Promise.all([
-    precomputePerMinTier('attack', statWeights, perStatueBudgets),
-    precomputePerMinTier('defense', statWeights, perStatueBudgets),
+    precomputePerMinTier('attack', statWeights, totalBudgets),
+    precomputePerMinTier('defense', statWeights, totalBudgets),
   ]);
 
   const result = greedyAllocate(attackSolutions, defenseSolutions, totalBudgets);
 
-  // TODO: Task 4 will add inventory pre-checks here that return { ok: false, reason: 'inventory', diagnostics }
-
   if (!result) {
+    if (!phase1Feasible) {
+      return { ok: false, reason: 'inventory', diagnostics: inventoryDiagnostics };
+    }
     return {
       ok: false,
       reason: 'infeasible',

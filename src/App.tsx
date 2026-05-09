@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Inventory, Solution, Failure } from './domain/types';
-import { DEFAULT_RANKING } from './domain/ranking';
+import { DEFAULT_RANKING, swapPvX } from './domain/ranking';
 import { optimize } from './solver/optimize';
 import { InventoryForm } from './ui/InventoryForm';
 import { OptimizationControls } from './ui/OptimizationControls';
@@ -27,15 +27,16 @@ export default function App() {
   const [formKey, setFormKey] = useState(0);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  const runOptimize = useCallback(async (inv: Inventory, offPct: number, isPvp: boolean) => {
+  const runOptimize = useCallback(async (inv: Inventory, _offPct: number, isPvp: boolean) => {
     setLoading(true);
     setError(null);
     setSolution(null);
+    const ranking = { ...DEFAULT_RANKING, order: swapPvX(DEFAULT_RANKING.order, isPvp), pvp: isPvp };
     try {
-      const result = await optimize(inv, offPct, isPvp);
+      const result = await optimize(inv, ranking);
       if (result.ok) {
         setSolution(result.solution);
-        setSolvedOffensivePct(offPct);
+        setSolvedOffensivePct(_offPct);
         setSolvedPvp(isPvp);
       } else if (result.reason === 'inventory') {
         setError('Insufficient inventory: ' + result.diagnostics.map(d => `${d.kind} ${d.rarity} needs ${d.need}, have ${d.have}`).join('; '));
