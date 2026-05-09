@@ -9,6 +9,7 @@ import {
 import type { StatRanking } from '../src/domain/ranking';
 import type { StatKey, Inventory } from '../src/domain/types';
 import { optimize } from '../src/solver/optimize';
+import { featherById } from '../src/data/feathers.generated';
 
 // ---------------------------------------------------------------------------
 // A. weightsFromRanking unit tests
@@ -120,6 +121,9 @@ describe('optimize() inventory checks', () => {
         const kinds = result.diagnostics.map(d => d.kind);
         expect(kinds).toContain('attack');
         expect(kinds).toContain('defense');
+        const rarities = result.diagnostics.map(d => d.rarity);
+        expect(rarities).toContain('Orange');
+        expect(rarities).toContain('Purple');
       }
     }
   });
@@ -167,7 +171,8 @@ describe('optimize() inventory checks', () => {
       },
     };
     const result = await optimize(inventory, DEFAULT_RANKING);
-    expect(result.ok === false && result.reason === 'inventory').toBe(false);
+    // The important thing: inventory check should not block it
+    if (!result.ok) expect(result.reason).not.toBe('inventory');
   });
 });
 
@@ -202,6 +207,22 @@ describe('optimize() integration — full solver', () => {
       for (const statue of defense) {
         expect(statue.feathers.length).toBe(5);
       }
+      // Verify rarity constraint: each statue has 4 orange + 1 purple
+      for (const statue of [...result.solution.attack, ...result.solution.defense]) {
+        const rarities = statue.feathers.map(f => featherById.get(f.feather)?.rarity);
+        const orangeCount = rarities.filter(r => r === 'Orange').length;
+        const purpleCount = rarities.filter(r => r === 'Purple').length;
+        expect(orangeCount).toBe(4);
+        expect(purpleCount).toBe(1);
+        // No duplicate feather IDs in a single statue
+        const ids = statue.feathers.map(f => f.feather);
+        expect(new Set(ids).size).toBe(5);
+        // All tiers in valid range
+        for (const f of statue.feathers) {
+          expect(f.tier).toBeGreaterThanOrEqual(1);
+          expect(f.tier).toBeLessThanOrEqual(20);
+        }
+      }
     }
   }, 30000); // 30s timeout for real GLPK
 });
@@ -223,6 +244,7 @@ describe('PRESETS', () => {
     for (const name of EXPECTED_PRESET_NAMES) {
       expect(PRESETS).toHaveProperty(name);
     }
+    expect(Object.keys(PRESETS).length).toBe(EXPECTED_PRESET_NAMES.length);
   });
 
   it('applyPreset("Balanced", false) order matches DEFAULT_RANKING.order', () => {
