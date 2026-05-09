@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
 import type { Solution, StatueTemplate, ConversionSet, StatKey, Failure } from '../domain/types';
 import { featherById } from '../data/feathers.generated';
 import { getAttackBonus, getDefenseBonus } from '../data/setBonuses.generated';
-import { computeStatueStats, computeRawStats } from '../domain/scoring';
+import { computeStatueStats, computeRawStats, PCT_CATEGORY_MAP } from '../domain/scoring';
 import { STAT_LABELS, ATTACK_STATS, DEFENSE_STATS, PVE_STATS, PVP_STATS } from '../data/statCategories';
 import { type StatRanking, weightsFromRanking } from '../domain/ranking';
 import { featherImages } from './featherImages';
 import { RarityDot, TypeChip } from './FeatherBadges';
+import { FeatherTooltipContent, WithTooltip } from './FeatherTooltip';
 
 function toRoman(n: number): string {
   const table: [number, string][] = [
@@ -132,10 +132,25 @@ function StatueCard({
   const flatRows = (Object.entries(bonus.flat) as [StatKey, number][]).filter(([, v]) => v !== 0);
   const pctRows = (Object.entries(bonus.pct) as [string, number][]).filter(([, v]) => v !== 0);
 
-  const statRows = ALL_STAT_KEYS
-    .filter(k => (boosted[k] ?? 0) !== 0 || (raw[k] ?? 0) !== 0)
-    .sort((a, b) => (statWeights[b] ?? 0) - (statWeights[a] ?? 0))
-    .map(k => ({ key: k, rawVal: raw[k] ?? 0, boostedVal: boosted[k] ?? 0 }));
+  const sortKeys = (keys: StatKey[]) =>
+    keys.sort((a, b) => (statWeights[b] ?? 0) - (statWeights[a] ?? 0));
+
+  const rawStatKeys = sortKeys(ALL_STAT_KEYS.filter(k => (raw[k] ?? 0) !== 0));
+
+  // Intermediate: raw × (1 + pct%) — only relevant when pct bonuses exist
+  const withPct: Partial<Record<StatKey, number>> = {};
+  if (pctRows.length > 0) {
+    for (const key of rawStatKeys) {
+      const cat = PCT_CATEGORY_MAP[key];
+      const pct = cat ? (bonus.pct[cat] ?? 0) : 0;
+      withPct[key] = (raw[key] ?? 0) * (1 + pct / 100);
+    }
+  }
+  const withPctKeys = sortKeys(ALL_STAT_KEYS.filter(k => (withPct[k] ?? 0) !== 0));
+
+  const boostedKeys = sortKeys(ALL_STAT_KEYS.filter(k => (boosted[k] ?? 0) !== 0));
+
+  function fmtVal(v: number) { return Number.isInteger(v) ? v : v.toFixed(1); }
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 0, fontSize: 12 }}>
@@ -155,7 +170,19 @@ function StatueCard({
         ))}
       </div>
 
-      {/* Section 2: Set Bonuses */}
+      {/* Section 2: Total Feather Stats */}
+      <Divider />
+      <SectionLabel>Total Feather Stats</SectionLabel>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
+        {rawStatKeys.map(k => (
+          <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k]}</span>
+            <span style={{ fontWeight: 600 }}>{fmtVal(raw[k]!)}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Section 3: Set Bonuses */}
       <Divider />
       <SectionLabel>Set Bonuses (T{template.minTier})</SectionLabel>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
@@ -176,22 +203,30 @@ function StatueCard({
         )}
       </div>
 
-      {/* Section 3: Total Stats */}
+      {/* Section 4: Total Stats with % Set Bonuses (only when pct bonuses exist) */}
+      {withPctKeys.length > 0 && (
+        <>
+          <Divider />
+          <SectionLabel>Total Stats with % Set Bonuses</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
+            {withPctKeys.map(k => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k]}</span>
+                <span style={{ fontWeight: 600 }}>{Math.floor(withPct[k]!)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Section 5: Total Stats with All Set Bonuses */}
       <Divider />
-      <SectionLabel>Total Stats</SectionLabel>
+      <SectionLabel>Total Stats with All Set Bonuses</SectionLabel>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {statRows.map(({ key, rawVal, boostedVal }) => (
-          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[key]}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ color: 'var(--muted)', fontSize: 10 }}>
-                {Number.isInteger(rawVal) ? rawVal : rawVal.toFixed(1)}
-              </span>
-              <span style={{ color: 'var(--muted)', fontSize: 10 }}>→</span>
-              <span style={{ fontWeight: 600 }}>
-                {Number.isInteger(boostedVal) ? boostedVal : boostedVal.toFixed(1)}
-              </span>
-            </span>
+        {boostedKeys.map(k => (
+          <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k]}</span>
+            <span style={{ fontWeight: 600 }}>{Math.floor(boosted[k]!)}</span>
           </div>
         ))}
       </div>
@@ -200,98 +235,48 @@ function StatueCard({
 }
 
 function FeatherRow({ feather, tier }: { feather: string; tier: number }) {
-  const [hovered, setHovered] = useState(false);
   const def = featherById.get(feather)!;
-  const t1Stats = Object.entries(def.tiers[1]?.stats ?? {}) as [string, number][];
-  const tierStats = Object.entries(def.tiers[tier]?.stats ?? {}) as [string, number][];
-  const allStatKeys = Array.from(new Set([...t1Stats.map(([k]) => k), ...tierStats.map(([k]) => k)]));
 
   return (
-    <div
-      style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {/* Image with tier overlay */}
-      <div style={{ position: 'relative', flexShrink: 0, width: 64, height: 64 }}>
-        {featherImages[feather]
-          ? <img src={featherImages[feather]} alt={feather} style={{ width: 64, height: 64, objectFit: 'contain' }} />
-          : <div style={{ width: 64, height: 64, background: 'var(--surface2)', borderRadius: 6 }} />
-        }
-        <div style={{
-          position: 'absolute', top: 2, left: 2,
-          background: 'rgba(255,255,255,0.25)',
-          borderRadius: 3,
-          padding: '1px 4px',
-          fontSize: 10,
-          fontWeight: 700,
-          color: '#4a9eff',
-          lineHeight: 1.4,
-          backdropFilter: 'blur(2px)',
-        }}>
-          {toRoman(tier)}
+    <WithTooltip tooltip={<FeatherTooltipContent feather={feather} tier={tier} />}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Image with tier overlay */}
+        <div style={{ position: 'relative', flexShrink: 0, width: 64, height: 64 }}>
+          {featherImages[feather]
+            ? <img src={featherImages[feather]} alt={feather} style={{ width: 64, height: 64, objectFit: 'contain' }} />
+            : <div style={{ width: 64, height: 64, background: 'var(--surface2)', borderRadius: 6 }} />
+          }
+          <div style={{
+            position: 'absolute', top: 2, left: 2,
+            background: 'rgba(255,255,255,0.25)',
+            borderRadius: 3,
+            padding: '1px 4px',
+            fontSize: 10,
+            fontWeight: 700,
+            color: '#4a9eff',
+            lineHeight: 1.4,
+            backdropFilter: 'blur(2px)',
+          }}>
+            {toRoman(tier)}
+          </div>
+        </div>
+
+        {/* Name / badges / cost */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <RarityDot rarity={def.rarity} />
+            <span style={{ fontWeight: 600 }}>{featherDisplayName(feather)}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <TypeChip type={def.type} />
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <span style={{ background: 'var(--surface2)', borderRadius: 3, padding: '0 5px', fontSize: 11 }}>T{tier}</span>
+            <span style={{ color: 'var(--muted)', fontSize: 10 }}>{def.tiers[tier]?.totalCost ?? 0} T1</span>
+          </div>
         </div>
       </div>
-
-      {/* Name / badges / cost */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <RarityDot rarity={def.rarity} />
-          <span style={{ fontWeight: 600 }}>{featherDisplayName(feather)}</span>
-        </div>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <TypeChip type={def.type} />
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ background: 'var(--surface2)', borderRadius: 3, padding: '0 5px', fontSize: 11 }}>T{tier}</span>
-          <span style={{ color: 'var(--muted)', fontSize: 10 }}>{def.tiers[tier]?.totalCost ?? 0} T1</span>
-        </div>
-      </div>
-
-      {/* Hover tooltip */}
-      {hovered && (
-        <div style={{
-          position: 'absolute', left: '100%', top: 0, zIndex: 100,
-          background: 'var(--surface2)',
-          border: '1px solid var(--border)',
-          opacity: 1,
-          borderRadius: 8,
-          padding: '10px 14px',
-          minWidth: 200,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
-          fontSize: 12,
-          pointerEvents: 'none',
-        }}>
-          <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--muted)' }}>
-            T1 Stats
-          </div>
-          {t1Stats.map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-              <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k as keyof typeof STAT_LABELS] ?? k}</span>
-              <span style={{ fontWeight: 600 }}>+{v}</span>
-            </div>
-          ))}
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '6px 0' }} />
-          <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--muted)' }}>
-            T{tier} Stats
-          </div>
-          {allStatKeys.map(k => {
-            const t1Val = (def.tiers[1]?.stats as Record<string,number> ?? {})[k] ?? 0;
-            const tVal = (def.tiers[tier]?.stats as Record<string,number> ?? {})[k] ?? 0;
-            return (
-              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-                <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k as keyof typeof STAT_LABELS] ?? k}</span>
-                <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span style={{ color: 'var(--muted)', fontSize: 10 }}>+{t1Val}</span>
-                  <span style={{ color: 'var(--muted)', fontSize: 10 }}>→</span>
-                  <span style={{ fontWeight: 600, color: 'var(--green)' }}>+{tVal}</span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    </WithTooltip>
   );
 }
 

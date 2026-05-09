@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import type { FeatherId, ConversionSet, StatKey, Inventory, FeatherDef } from '../domain/types';
 import { feathers, featherById } from '../data/feathers.generated';
 import { getAttackBonus, getDefenseBonus } from '../data/setBonuses.generated';
-import { computeStatueStats } from '../domain/scoring';
+import { computeStatueStats, computeRawStats, PCT_CATEGORY_MAP } from '../domain/scoring';
 import { STAT_LABELS, ATTACK_STATS, DEFENSE_STATS, PVE_STATS, PVP_STATS } from '../data/statCategories';
 import { featherImages } from './featherImages';
 import { RarityDot, TypeChip } from './FeatherBadges';
+import { FeatherTooltipContent, TierTooltipContent, WithTooltip } from './FeatherTooltip';
 import { InventoryForm } from './InventoryForm';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -400,7 +401,7 @@ export function SimulatorView({
                         const isUsed = usedInStatue.has(fid);
                         const overBudget = !isSelected && wouldExceedBudget(fid, pickerTier);
                         const disabled = isUsed || overBudget;
-                        return (
+                        const featherBtn = (
                           <button
                             key={fid}
                             disabled={disabled}
@@ -421,16 +422,54 @@ export function SimulatorView({
                               opacity: disabled ? 0.4 : 1,
                               textAlign: 'left', fontFamily: 'inherit', fontSize: 12,
                               transition: 'background 0.1s',
+                              width: '100%',
                             }}
                           >
-                            {featherImages[f.id]
-                              ? <img src={featherImages[f.id]} alt={f.id} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4, flexShrink: 0 }} />
-                              : <div style={{ width: 28, height: 28, background: 'var(--border)', borderRadius: 4, flexShrink: 0 }} />
-                            }
-                            <span style={{ flex: 1, fontWeight: 600 }}>{featherDisplayName(f.id)}</span>
-                            {overBudget && <span style={{ fontSize: 10, color: 'var(--danger)', fontWeight: 700 }}>over</span>}
-                            <RarityDot rarity={f.rarity} />
+                            {/* Image with tier overlay */}
+                            <div style={{ position: 'relative', flexShrink: 0, width: 44, height: 44 }}>
+                              {featherImages[f.id]
+                                ? <img src={featherImages[f.id]} alt={f.id} style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 4 }} />
+                                : <div style={{ width: 44, height: 44, background: 'var(--border)', borderRadius: 4 }} />
+                              }
+                              <div style={{
+                                position: 'absolute', top: 2, left: 2,
+                                background: 'rgba(255,255,255,0.25)',
+                                borderRadius: 3, padding: '1px 3px',
+                                fontSize: 9, fontWeight: 700,
+                                color: isSelected ? '#fff' : '#4a9eff',
+                                lineHeight: 1.4, backdropFilter: 'blur(2px)',
+                              }}>
+                                {ROMAN[pickerTier]}
+                              </div>
+                            </div>
+                            {/* Name / type / cost */}
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <RarityDot rarity={f.rarity} />
+                                <span style={{ fontWeight: 600, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {featherDisplayName(f.id)}
+                                </span>
+                              </div>
+                              <TypeChip type={f.type} />
+                              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                <span style={{
+                                  background: isSelected ? 'rgba(255,255,255,0.2)' : 'var(--surface2)',
+                                  borderRadius: 3, padding: '0 4px', fontSize: 10,
+                                }}>T{pickerTier}</span>
+                                <span style={{ fontSize: 10, opacity: 0.75 }}>
+                                  {f.tiers[pickerTier]?.totalCost ?? 0} T1
+                                </span>
+                              </div>
+                            </div>
+                            {overBudget && <span style={{ fontSize: 10, color: 'var(--danger)', fontWeight: 700, flexShrink: 0 }}>over</span>}
                           </button>
+                        );
+                        return disabled ? (
+                          <div key={fid}>{featherBtn}</div>
+                        ) : (
+                          <WithTooltip key={fid} tooltip={<FeatherTooltipContent feather={fid} tier={pickerTier} />}>
+                            {featherBtn}
+                          </WithTooltip>
                         );
                       })}
                     </div>
@@ -460,7 +499,7 @@ export function SimulatorView({
                   {Array.from({ length: 20 }, (_, i) => i + 1).map(t => {
                     const isActive = pickerTier === t;
                     const tierOverBudget = !isActive && pickerFeather !== null && wouldExceedBudget(pickerFeather, t);
-                    return (
+                    const tierBtn = (
                       <button
                         key={t}
                         disabled={tierOverBudget}
@@ -482,6 +521,11 @@ export function SimulatorView({
                         {ROMAN[t]}
                       </button>
                     );
+                    return pickerFeather ? (
+                      <WithTooltip key={t} tooltip={<TierTooltipContent feather={pickerFeather} tier={t} />} offsetX={-90} offsetY={4}>
+                        {tierBtn}
+                      </WithTooltip>
+                    ) : tierBtn;
                   })}
                 </div>
               </div>
@@ -530,7 +574,8 @@ function StatueSimCard({
   const bonus = tpl
     ? (kind === 'attack' ? getAttackBonus(tpl.minTier) : getDefenseBonus(tpl.minTier))
     : null;
-  const stats: Partial<Record<StatKey, number>> = tpl && bonus
+  const raw: Partial<Record<StatKey, number>> = tpl ? computeRawStats(tpl) : {};
+  const boosted: Partial<Record<StatKey, number>> = tpl && bonus
     ? computeStatueStats(tpl, bonus)
     : {};
 
@@ -540,8 +585,22 @@ function StatueSimCard({
   const pctRows = bonus
     ? (Object.entries(bonus.pct) as [string, number][]).filter(([, v]) => v !== 0)
     : [];
-  const statRows = ALL_STAT_KEYS.filter(k => (stats[k] ?? 0) !== 0);
-  const hasBonuses = flatRows.length > 0 || pctRows.length > 0;
+
+  const rawStatKeys = ALL_STAT_KEYS.filter(k => (raw[k] ?? 0) !== 0);
+
+  // Intermediate: raw × (1 + pct%) — only relevant when pct bonuses exist
+  const withPct: Partial<Record<StatKey, number>> = {};
+  if (bonus && pctRows.length > 0) {
+    for (const key of rawStatKeys) {
+      const cat = PCT_CATEGORY_MAP[key];
+      const pct = cat ? (bonus.pct[cat] ?? 0) : 0;
+      withPct[key] = (raw[key] ?? 0) * (1 + pct / 100);
+    }
+  }
+  const withPctKeys = ALL_STAT_KEYS.filter(k => (withPct[k] ?? 0) !== 0);
+  const boostedKeys = ALL_STAT_KEYS.filter(k => (boosted[k] ?? 0) !== 0);
+
+  function fmtVal(v: number) { return Number.isInteger(v) ? v : v.toFixed(1); }
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 0, fontSize: 12 }}>
@@ -559,7 +618,8 @@ function StatueSimCard({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
         {statue.map((slot, slotIdx) => {
           const isSelected = selectedSlot === slotIdx;
-          return (
+          const slotDef = slot ? featherById.get(slot.feather) : null;
+          const slotButton = (
             <button
               key={slotIdx}
               onClick={() => onSlotClick(slotIdx)}
@@ -598,16 +658,16 @@ function StatueSimCard({
                   {/* Name / type / cost */}
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {(() => { const d = featherById.get(slot.feather); return d ? <RarityDot rarity={d.rarity} /> : null; })()}
+                      {slotDef ? <RarityDot rarity={slotDef.rarity} /> : null}
                       <span style={{ fontWeight: 600, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {featherDisplayName(slot.feather)}
                       </span>
                     </div>
-                    {(() => { const d = featherById.get(slot.feather); return d ? <TypeChip type={d.type} /> : null; })()}
+                    {slotDef ? <TypeChip type={slotDef.type} /> : null}
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                       <span style={{ background: 'var(--surface2)', borderRadius: 3, padding: '0 4px', fontSize: 10 }}>T{slot.tier}</span>
                       <span style={{ color: 'var(--muted)', fontSize: 10 }}>
-                        {featherById.get(slot.feather)?.tiers[slot.tier]?.totalCost ?? 0} T1
+                        {slotDef?.tiers[slot.tier]?.totalCost ?? 0} T1
                       </span>
                     </div>
                   </div>
@@ -617,11 +677,34 @@ function StatueSimCard({
               )}
             </button>
           );
+          return slot ? (
+            <WithTooltip key={slotIdx} tooltip={<FeatherTooltipContent feather={slot.feather} tier={slot.tier} />}>
+              {slotButton}
+            </WithTooltip>
+          ) : slotButton;
         })}
       </div>
 
-      {/* Set bonuses */}
-      {tpl && hasBonuses && (
+      {/* Section 2: Total Feather Stats */}
+      {rawStatKeys.length > 0 && (
+        <>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '2px 0 5px' }} />
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 3 }}>
+            Total Feather Stats
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginBottom: 4 }}>
+            {rawStatKeys.map(k => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k]}</span>
+                <span style={{ fontWeight: 600 }}>{fmtVal(raw[k]!)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Section 3: Set Bonuses */}
+      {tpl && (
         <>
           <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '2px 0 5px' }} />
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 3 }}>
@@ -640,27 +723,45 @@ function StatueSimCard({
                 <span style={{ color: 'var(--green)', fontWeight: 600 }}>+{v}%</span>
               </div>
             ))}
+            {flatRows.length === 0 && pctRows.length === 0 && (
+              <span style={{ color: 'var(--muted)', fontSize: 11 }}>No bonuses at T{tpl.minTier}</span>
+            )}
           </div>
         </>
       )}
 
-      {/* Total stats */}
-      {statRows.length > 0 && (
+      {/* Section 4: Total Stats with % Set Bonuses */}
+      {withPctKeys.length > 0 && (
         <>
           <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '2px 0 5px' }} />
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 3 }}>
-            Total Stats
+            Total Stats with % Set Bonuses
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginBottom: 4 }}>
+            {withPctKeys.map(k => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k]}</span>
+                <span style={{ fontWeight: 600 }}>{Math.floor(withPct[k]!)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Section 5: Total Stats with All Set Bonuses */}
+      {boostedKeys.length > 0 && (
+        <>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '2px 0 5px' }} />
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 3 }}>
+            Total Stats with All Set Bonuses
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {statRows.map(k => {
-              const v = stats[k]!;
-              return (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k]}</span>
-                  <span style={{ fontWeight: 600 }}>{Number.isInteger(v) ? v : v.toFixed(1)}</span>
-                </div>
-              );
-            })}
+            {boostedKeys.map(k => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k]}</span>
+                <span style={{ fontWeight: 600 }}>{Math.floor(boosted[k]!)}</span>
+              </div>
+            ))}
           </div>
         </>
       )}

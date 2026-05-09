@@ -15,7 +15,7 @@ const DEFAULT_INVENTORY: Inventory = { perFeather: {} };
 export default function App() {
   // Bootstrap from URL on first render
   const initialParams = new URLSearchParams(window.location.search);
-  const initialTab = initialParams.get('tab') === 'simulate' ? 'simulate' : 'optimize';
+  const initialTab = initialParams.get('tab') === 'optimize' ? 'optimize' : 'simulate';
   const initialUrl = decodeUrlState(window.location.search);
   const initialSimUrl = decodeSimState(window.location.search);
   const initialRanking = initialUrl?.ranking ?? DEFAULT_RANKING;
@@ -149,7 +149,7 @@ export default function App() {
 
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 2, borderBottom: '2px solid var(--border)', marginBottom: 24 }}>
-        {(['optimize', 'simulate'] as const).map(t => (
+        {(['simulate', 'optimize'] as const).map(t => (
           <button
             key={t}
             onClick={() => handleTabChange(t)}
