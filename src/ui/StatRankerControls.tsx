@@ -43,20 +43,16 @@ const PRESET_NAMES: PresetName[] = [
   'Tank',
 ];
 
-/** Best-effort heuristic: check ratio and first 3 order entries against preset */
 function detectPreset(ranking: StatRanking): PresetName | null {
-  for (const name of PRESET_NAMES) {
-    const preset = PRESETS[name];
-    if (!preset) continue;
-    if (Math.abs(preset.ratio - ranking.ratio) > 0.001) continue;
-    // Compare first 3 entries, accounting for PvX swap
-    const presetOrder = preset.order;
-    const pvxMap: Partial<Record<StatKey, StatKey>> = ranking.pvp
-      ? { PvEDmgBonus: 'PvPDmgBonus', PvEDmgReduction: 'PvPDmgReduction' }
-      : { PvPDmgBonus: 'PvEDmgBonus', PvPDmgReduction: 'PvEDmgReduction' };
-    const normalised = presetOrder.map((s) => (pvxMap[s] as StatKey | undefined) ?? s);
-    const match = [0, 1, 2].every((i) => normalised[i] === ranking.order[i]);
-    if (match) return name;
+  const canonical = swapPvX(ranking.order, false); // normalize to PvE
+  for (const [name, preset] of Object.entries(PRESETS)) {
+    if (
+      Math.abs(preset.ratio - ranking.ratio) < 0.001 &&
+      preset.order.length === canonical.length &&
+      preset.order.every((s, i) => s === canonical[i])
+    ) {
+      return name as PresetName;
+    }
   }
   return null;
 }
@@ -79,6 +75,17 @@ const toggleBase: CSSProperties = {
   cursor: 'pointer',
   border: 'none',
   fontFamily: 'inherit',
+};
+
+const arrowBtn: CSSProperties = {
+  fontSize: 12,
+  border: 'none',
+  padding: '2px 6px',
+  background: 'var(--surface2)',
+  cursor: 'pointer',
+  borderRadius: 4,
+  fontFamily: 'inherit',
+  lineHeight: 1,
 };
 
 export function StatRankerControls({ ranking, onChange, onOptimize, loading }: Props) {
@@ -114,17 +121,6 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
     onChange({ ...ranking, order });
   }
 
-  const arrowBtn: CSSProperties = {
-    fontSize: 12,
-    border: 'none',
-    padding: '2px 6px',
-    background: 'var(--surface2)',
-    cursor: 'pointer',
-    borderRadius: 4,
-    fontFamily: 'inherit',
-    lineHeight: 1,
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <h2>Optimization</h2>
@@ -134,12 +130,14 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
         <div style={sectionLabel}>Content Type</div>
         <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
           <button
+            type="button"
             style={{ ...toggleBase, background: !ranking.pvp ? 'var(--accent)' : 'var(--surface)', color: !ranking.pvp ? '#fff' : 'var(--muted)' }}
             onClick={() => handlePvpToggle(false)}
           >
             PvE
           </button>
           <button
+            type="button"
             style={{ ...toggleBase, background: ranking.pvp ? 'var(--accent)' : 'var(--surface)', color: ranking.pvp ? '#fff' : 'var(--muted)' }}
             onClick={() => handlePvpToggle(true)}
           >
@@ -157,6 +155,7 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
             return (
               <button
                 key={name}
+                type="button"
                 onClick={() => handlePreset(name)}
                 style={{
                   fontSize: 12,
@@ -191,7 +190,9 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
           style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
         />
         <p style={{ color: 'var(--muted)', fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>
-          Each stat is {ranking.ratio.toFixed(2)}× more important than the one below
+          {ranking.ratio <= 1.01
+            ? 'All stats weighted equally (no spread)'
+            : `Each stat is ${ranking.ratio.toFixed(2)}× more important than the one below`}
         </p>
       </div>
 
@@ -229,14 +230,14 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
               </span>
               <div style={{ display: 'flex', gap: 3 }}>
                 {i > 0 ? (
-                  <button style={arrowBtn} onClick={() => moveUp(i)} title="Move up">
+                  <button type="button" style={arrowBtn} onClick={() => moveUp(i)} title="Move up">
                     ▲
                   </button>
                 ) : (
                   <span style={{ width: 28 }} />
                 )}
                 {i < ranking.order.length - 1 ? (
-                  <button style={arrowBtn} onClick={() => moveDown(i)} title="Move down">
+                  <button type="button" style={arrowBtn} onClick={() => moveDown(i)} title="Move down">
                     ▼
                   </button>
                 ) : (
