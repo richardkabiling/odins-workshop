@@ -32,6 +32,10 @@ function varName(featherId: string, tier: number) {
   return `y_${featherId}_${tier}`;
 }
 
+function phase1VarName(statueIdx: number, featherId: string) {
+  return `x_${statueIdx}_${featherId}`;
+}
+
 export function buildModel(
   kind: TemplateKind,
   statWeights: Partial<Record<StatKey, number>>,
@@ -166,6 +170,9 @@ export function buildPhase1Model(
   const attackBonus = getAttackBonus(1);
   const defenseBonus = getDefenseBonus(1);
 
+  const attackEligible = eligibleFeathers('attack');
+  const defenseEligible = eligibleFeathers('defense');
+
   const objVars: { name: string; coef: number }[] = [];
   const binaries: string[] = [];
 
@@ -177,7 +184,7 @@ export function buildPhase1Model(
   for (let s = 0; s < 10; s++) {
     const kind: TemplateKind = s < 5 ? 'attack' : 'defense';
     const bonus = kind === 'attack' ? attackBonus : defenseBonus;
-    const eligible = eligibleFeathers(kind);
+    const eligible = s < 5 ? attackEligible : defenseEligible;
 
     const varsForStatue: string[] = [];
     const orangeVarsForStatue: string[] = [];
@@ -187,7 +194,7 @@ export function buildPhase1Model(
       const tierData = feather.tiers[1];
       if (!tierData) continue;
 
-      const name = `x_${s}_${feather.id}`;
+      const name = phase1VarName(s, feather.id);
       binaries.push(name);
       varsForStatue.push(name);
 
@@ -249,12 +256,11 @@ export function buildPhase1Model(
     const costVars: { name: string; coef: number }[] = [];
 
     for (let s = 0; s < 10; s++) {
-      const kind: TemplateKind = s < 5 ? 'attack' : 'defense';
-      const eligible = eligibleFeathers(kind);
+      const eligible = s < 5 ? attackEligible : defenseEligible;
       const feathersInSet = eligible.filter(f => f.set === convSet);
 
       for (const feather of feathersInSet) {
-        const name = `x_${s}_${feather.id}`;
+        const name = phase1VarName(s, feather.id);
         if (!binaries.includes(name)) continue;
         const tier1Cost = feather.tiers[1]?.totalCost ?? 0;
         costVars.push({ name, coef: tier1Cost });
