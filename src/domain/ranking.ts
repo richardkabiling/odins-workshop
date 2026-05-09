@@ -5,7 +5,7 @@ export type TemplateKind = 'attack' | 'defense';
 
 export interface StatRanking {
   /** All 15 stats ordered by priority (index 0 = highest). One PvX variant is
-   *  shown depending on the pvp flag. */
+   *  present depending on the pvp flag. */
   order: StatKey[];
   /** Geometric decay ratio: 1.0 = equal weights, 2.0 = top stat weighs 2× the
    *  next. Default 1.5. */
@@ -21,6 +21,7 @@ export interface StatRanking {
 export function weightsFromRanking(
   r: StatRanking,
 ): Partial<Record<StatKey, number>> {
+  if (r.ratio <= 0) throw new RangeError(`StatRanking.ratio must be > 0, got ${r.ratio}`);
   const n = r.order.length;
   const result: Partial<Record<StatKey, number>> = {};
   for (let i = 0; i < n; i++) {
@@ -52,6 +53,8 @@ export function swapPvX(order: StatKey[], pvp: boolean): StatKey[] {
 // ---------------------------------------------------------------------------
 // Named presets (canonical order uses PvE variants; swapPvX handles pvp mode)
 // ---------------------------------------------------------------------------
+
+export type PresetName = 'Pure Offense' | 'Pure Defense' | 'Balanced' | 'Glass Cannon' | 'Tank';
 
 export const PRESETS: Record<string, Omit<StatRanking, 'pvp'>> = {
   'Pure Offense': {
@@ -98,7 +101,7 @@ export const PRESETS: Record<string, Omit<StatRanking, 'pvp'>> = {
  * Build a StatRanking from a named preset, honouring the current pvp flag.
  * swapPvX is called so the order contains the correct PvX variant.
  */
-export function applyPreset(name: string, pvp: boolean): StatRanking {
+export function applyPreset(name: PresetName, pvp: boolean): StatRanking {
   const preset = PRESETS[name];
   if (!preset) {
     throw new Error(`Unknown preset: "${name}"`);
@@ -110,5 +113,6 @@ export function applyPreset(name: string, pvp: boolean): StatRanking {
   };
 }
 
+// Must reference a key that exists in PRESETS
 /** Default ranking: "Balanced" preset in PvE mode. */
 export const DEFAULT_RANKING: StatRanking = applyPreset('Balanced', false);
