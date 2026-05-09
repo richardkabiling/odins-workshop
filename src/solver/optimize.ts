@@ -232,6 +232,8 @@ export async function optimize(
 
   const result = greedyAllocate(attackSolutions, defenseSolutions, totalBudgets);
 
+  // TODO: Task 4 will add inventory pre-checks here that return { ok: false, reason: 'inventory', diagnostics }
+
   if (!result) {
     return {
       ok: false,

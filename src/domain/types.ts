@@ -70,7 +70,7 @@ export type OptimizeStatus = 'idle' | 'running' | 'done' | 'infeasible' | 'error
 
 export interface InventoryDiagnostic {
   kind: 'attack' | 'defense';
-  rarity: 'Orange' | 'Purple';
+  rarity: Rarity;
   need: number;          // minimum required (4 for orange, 1 for purple)
   have: number;          // how many distinct eligible feathers user has
   missing: FeatherId[];  // eligible feather IDs user has 0 of
