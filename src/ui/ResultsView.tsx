@@ -4,7 +4,7 @@ import { featherById } from '../data/feathers.generated';
 import { getAttackBonus, getDefenseBonus } from '../data/setBonuses.generated';
 import { computeStatueStats, computeRawStats, PCT_CATEGORY_MAP } from '../domain/scoring';
 import { STAT_LABELS, ATTACK_STATS, DEFENSE_STATS, PVE_STATS, PVP_STATS } from '../data/statCategories';
-import { type StatRanking, weightsFromRanking } from '../domain/ranking';
+import type { StatRanking } from '../domain/ranking';
 import { featherImages } from './featherImages';
 import { RarityDot, TypeChip } from './FeatherBadges';
 import { FeatherTooltipContent, WithTooltip } from './FeatherTooltip';
@@ -41,7 +41,7 @@ interface Props {
   ranking: StatRanking;
 }
 
-export function ResultsView({ solution, failure, ranking }: Props) {
+export function ResultsView({ solution, failure }: Props) {
   if (failure) {
     if (failure.kind === 'generic') {
       return (
@@ -73,8 +73,6 @@ export function ResultsView({ solution, failure, ranking }: Props) {
   }
   if (!solution) return null;
 
-  const statWeights = weightsFromRanking(ranking);
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -88,7 +86,7 @@ export function ResultsView({ solution, failure, ranking }: Props) {
         <h2 style={{ marginBottom: 10 }}>Attack Statues</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
           {solution.attack.map((t, i) => (
-            <StatueCard key={i} index={i + 1} template={t} kind="attack" statWeights={statWeights} />
+            <StatueCard key={i} index={i + 1} template={t} kind="attack" />
           ))}
         </div>
       </section>
@@ -97,7 +95,7 @@ export function ResultsView({ solution, failure, ranking }: Props) {
         <h2 style={{ marginBottom: 10 }}>Defense Statues</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
           {solution.defense.map((t, i) => (
-            <StatueCard key={i} index={i + 1} template={t} kind="defense" statWeights={statWeights} />
+            <StatueCard key={i} index={i + 1} template={t} kind="defense" />
           ))}
         </div>
       </section>
@@ -109,12 +107,11 @@ export function ResultsView({ solution, failure, ranking }: Props) {
 }
 
 function StatueCard({
-  index, template, kind, statWeights,
+  index, template, kind,
 }: {
   index: number;
   template: StatueTemplate;
   kind: 'attack' | 'defense';
-  statWeights: Partial<Record<StatKey, number>>;
 }) {
   if (!template.feathers.length) {
     return (
@@ -132,10 +129,13 @@ function StatueCard({
   const flatRows = (Object.entries(bonus.flat) as [StatKey, number][]).filter(([, v]) => v !== 0);
   const pctRows = (Object.entries(bonus.pct) as [string, number][]).filter(([, v]) => v !== 0);
 
-  const sortKeys = (keys: StatKey[]) =>
-    keys.sort((a, b) => (statWeights[b] ?? 0) - (statWeights[a] ?? 0));
+  // Canonical key order: all stat keys that appear in boosted, sorted by boosted value descending.
+  // Sections 2 and 4 use the same order, filtered to keys present in each.
+  const canonicalOrder = ALL_STAT_KEYS
+    .filter(k => (boosted[k] ?? 0) !== 0)
+    .sort((a, b) => (boosted[b] ?? 0) - (boosted[a] ?? 0));
 
-  const rawStatKeys = sortKeys(ALL_STAT_KEYS.filter(k => (raw[k] ?? 0) !== 0));
+  const rawStatKeys = canonicalOrder.filter(k => (raw[k] ?? 0) !== 0);
 
   // Intermediate: raw × (1 + pct%) — only relevant when pct bonuses exist
   const withPct: Partial<Record<StatKey, number>> = {};
@@ -146,9 +146,8 @@ function StatueCard({
       withPct[key] = (raw[key] ?? 0) * (1 + pct / 100);
     }
   }
-  const withPctKeys = sortKeys(ALL_STAT_KEYS.filter(k => (withPct[k] ?? 0) !== 0));
-
-  const boostedKeys = sortKeys(ALL_STAT_KEYS.filter(k => (boosted[k] ?? 0) !== 0));
+  const withPctKeys = canonicalOrder.filter(k => (withPct[k] ?? 0) !== 0);
+  const boostedKeys = canonicalOrder;
 
   function fmtVal(v: number) { return Number.isInteger(v) ? v : v.toFixed(1); }
 

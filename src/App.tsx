@@ -195,7 +195,6 @@ export default function App() {
               <ResultsView
                 solution={solution}
                 failure={failure}
-                ranking={solvedRanking}
               />
             </div>
           )}

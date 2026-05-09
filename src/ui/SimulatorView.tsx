@@ -597,8 +597,15 @@ function StatueSimCard({
       withPct[key] = (raw[key] ?? 0) * (1 + pct / 100);
     }
   }
-  const withPctKeys = ALL_STAT_KEYS.filter(k => (withPct[k] ?? 0) !== 0);
-  const boostedKeys = ALL_STAT_KEYS.filter(k => (boosted[k] ?? 0) !== 0);
+
+  // Canonical key order: sorted by boosted value descending; shared across sections 2, 4, 5.
+  const canonicalOrder = ALL_STAT_KEYS
+    .filter(k => (boosted[k] ?? 0) !== 0)
+    .sort((a, b) => (boosted[b] ?? 0) - (boosted[a] ?? 0));
+
+  const orderedRawKeys = canonicalOrder.filter(k => (raw[k] ?? 0) !== 0);
+  const withPctKeys = canonicalOrder.filter(k => (withPct[k] ?? 0) !== 0);
+  const boostedKeys = canonicalOrder;
 
   function fmtVal(v: number) { return Number.isInteger(v) ? v : v.toFixed(1); }
 
@@ -693,7 +700,7 @@ function StatueSimCard({
             Total Feather Stats
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginBottom: 4 }}>
-            {rawStatKeys.map(k => (
+            {orderedRawKeys.map(k => (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k]}</span>
                 <span style={{ fontWeight: 600 }}>{fmtVal(raw[k]!)}</span>
