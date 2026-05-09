@@ -12,7 +12,6 @@ const DEFAULT_INVENTORY: Inventory = { perFeather: {} };
 export default function App() {
   // Bootstrap from URL on first render
   const initialUrl = decodeUrlState(window.location.search);
-  // Derive legacy UI controls from ranking (ratio not yet exposed in UI — use defaults)
   const initialRanking = initialUrl?.ranking ?? DEFAULT_RANKING;
 
   const [inventory, setInventory] = useState<Inventory>(initialUrl?.inventory ?? DEFAULT_INVENTORY);
@@ -20,27 +19,28 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [solution, setSolution] = useState<Solution | null>(null);
   const [solvedRanking, setSolvedRanking] = useState<StatRanking>(initialRanking);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
   // Key to force-remount InventoryForm when clearing (flushes local raw state)
   const [formKey, setFormKey] = useState(0);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const runOptimize = useCallback(async (inv: Inventory, r: StatRanking) => {
     setLoading(true);
-    setError(null);
+    setFailure(null);
     setSolution(null);
     try {
       const result = await optimize(inv, r);
       if (result.ok) {
         setSolution(result.solution);
         setSolvedRanking(r);
+        setFailure(null);
       } else if (result.reason === 'inventory') {
-        setError('Insufficient inventory: ' + result.diagnostics.map(d => `${d.kind} ${d.rarity} needs ${d.need}, have ${d.have}`).join('; '));
+        setFailure({ kind: 'inventory', diagnostics: result.diagnostics });
       } else {
-        setError(result.message ?? 'No feasible solution. Check that you have enough feathers (at least 4 orange + 1 purple eligible for the chosen statue type).');
+        setFailure({ kind: 'generic', message: result.message ?? 'No feasible solution found.' });
       }
     } catch (e) {
-      setError(String(e));
+      setFailure({ kind: 'generic', message: String(e) });
     } finally {
       setLoading(false);
     }
@@ -69,7 +69,7 @@ export default function App() {
     setRanking(DEFAULT_RANKING);
     setSolvedRanking(DEFAULT_RANKING);
     setSolution(null);
-    setError(null);
+    setFailure(null);
     setFormKey(k => k + 1);
   }
 
@@ -96,11 +96,11 @@ export default function App() {
         </div>
       </div>
 
-      {(solution || error) && (
+      {(solution || failure) && (
         <div ref={resultsRef} style={{ marginTop: 32 }}>
           <ResultsView
             solution={solution}
-            failure={error ? ({ kind: 'generic', message: error } satisfies Failure) : null}
+            failure={failure}
             ranking={solvedRanking}
           />
         </div>
