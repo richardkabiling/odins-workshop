@@ -33,6 +33,7 @@ function scoreCoeff(
   featherId: FeatherId,
   kind: TemplateKind,
   statWeights: Partial<Record<StatKey, number>>,
+  normFactors: Partial<Record<StatKey, number>>,
 ): number {
   const def = featherById.get(featherId)!;
   const bonus = kind === 'attack' ? getAttackBonus(1) : getDefenseBonus(1);
@@ -42,9 +43,10 @@ function scoreCoeff(
   for (const [statStr, val] of Object.entries(tierData.stats) as [StatKey, number][]) {
     const weight = statWeights[statStr] ?? 0;
     if (weight === 0) continue;
+    const norm = normFactors[statStr] ?? 1;
     const pctCat = PCT_CATEGORY_MAP[statStr];
     const pct = pctCat ? (bonus.pct[pctCat] ?? 0) : 0;
-    coef += val * weight * (1 + pct / 100);
+    coef += (val / norm) * weight * (1 + pct / 100);
   }
   return coef;
 }
@@ -64,6 +66,8 @@ export interface Step1Result {
 export async function solveT1Setup(
   poolInitial: Partial<Record<ConversionSet, number>>,
   statWeights: Partial<Record<StatKey, number>>,
+  attackNormFactors: Partial<Record<StatKey, number>> = {},
+  defenseNormFactors: Partial<Record<StatKey, number>> = {},
 ): Promise<Step1Result | null> {
   const attackEligible = eligibleFeathers('attack');
   const defenseEligible = eligibleFeathers('defense');
@@ -79,7 +83,7 @@ export async function solveT1Setup(
   for (const f of attackEligible) {
     const name = atkVarOf(f.id as FeatherId);
     generals.push(name);
-    objVars.push({ name, coef: scoreCoeff(f.id as FeatherId, 'attack', statWeights) });
+    objVars.push({ name, coef: scoreCoeff(f.id as FeatherId, 'attack', statWeights, attackNormFactors) });
     // Upper bound: at most 5 copies (one per statue)
     constraints.push({
       name: `ub_xA_${f.id}`,
@@ -92,7 +96,7 @@ export async function solveT1Setup(
   for (const f of defenseEligible) {
     const name = defVarOf(f.id as FeatherId);
     generals.push(name);
-    objVars.push({ name, coef: scoreCoeff(f.id as FeatherId, 'defense', statWeights) });
+    objVars.push({ name, coef: scoreCoeff(f.id as FeatherId, 'defense', statWeights, defenseNormFactors) });
     constraints.push({
       name: `ub_xD_${f.id}`,
       vars: [{ name, coef: 1 }],

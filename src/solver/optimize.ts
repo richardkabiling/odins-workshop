@@ -18,6 +18,7 @@ import { weightsFromRanking } from '../domain/ranking';
 import { feathers } from '../data/feathers.generated';
 import { solveT1Setup } from './step1';
 import { iterateUpgrades, totalScore, SETS } from './step2';
+import { computeNormFactors } from './normFactors';
 
 export type OptimizeResult =
   | { ok: true; solution: import('../domain/types').Solution }
@@ -74,8 +75,11 @@ export async function optimize(
   const statWeights = weightsFromRanking(ranking);
   const poolInitial = poolBudgets(inventory);
 
+  const attackNormFactors = computeNormFactors(feathers, 'attack');
+  const defenseNormFactors = computeNormFactors(feathers, 'defense');
+
   // Step 1 — joint T1 ILP
-  const step1 = await solveT1Setup(poolInitial, statWeights);
+  const step1 = await solveT1Setup(poolInitial, statWeights, attackNormFactors, defenseNormFactors);
   if (!step1) {
     return {
       ok: false,
@@ -90,9 +94,11 @@ export async function optimize(
   const finalState = iterateUpgrades(
     { attack: step1.attack, defense: step1.defense, poolRemaining: step1.poolRemaining },
     statWeights,
+    attackNormFactors,
+    defenseNormFactors,
   );
 
-  const score = totalScore(finalState, statWeights);
+  const score = totalScore(finalState, statWeights, attackNormFactors, defenseNormFactors);
 
   // spentPerSet = poolInitial − poolRemaining
   const spentPerSet: Partial<Record<ConversionSet, number>> = {};

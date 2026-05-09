@@ -51,12 +51,16 @@ function statueScore(
   template: StatueTemplate,
   kind: TemplateKind,
   weights: Partial<Record<StatKey, number>>,
+  normFactors: Partial<Record<StatKey, number>> = {},
 ): number {
   const minTier = template.feathers.reduce((m, f) => Math.min(m, f.tier), Infinity);
   const bonus = kind === 'attack' ? getAttackBonus(minTier) : getDefenseBonus(minTier);
   const stats = computeStatueStats(template, bonus);
   return Object.entries(weights).reduce(
-    (s, [k, w]) => s + (stats[k as StatKey] ?? 0) * (w ?? 0),
+    (s, [k, w]) => {
+      const norm = normFactors[k as StatKey] ?? 1;
+      return s + ((stats[k as StatKey] ?? 0) / norm) * (w ?? 0);
+    },
     0,
   );
 }
@@ -75,6 +79,7 @@ function tryMove(
   poolRemaining: Partial<Record<ConversionSet, number>>,
   weights: Partial<Record<StatKey, number>>,
   type: 'single' | 'lift',
+  normFactors: Partial<Record<StatKey, number>>,
   slotIdx?: number,
 ): Move | null {
   const newFeathers = template.feathers.map(f => ({ ...f }));
@@ -113,12 +118,12 @@ function tryMove(
     }
   }
 
-  const before = statueScore(template, kind, weights);
+  const before = statueScore(template, kind, weights, normFactors);
   const newTemplate: StatueTemplate = {
     feathers: newFeathers,
     minTier: Math.min(...newFeathers.map(f => f.tier)),
   };
-  const after = statueScore(newTemplate, kind, weights);
+  const after = statueScore(newTemplate, kind, weights, normFactors);
   const deltaScore = after - before;
   if (deltaScore <= 0) return null;
 
@@ -151,6 +156,8 @@ function tryMove(
 export function iterateUpgrades(
   state: UpgradeState,
   weights: Partial<Record<StatKey, number>>,
+  attackNormFactors: Partial<Record<StatKey, number>> = {},
+  defenseNormFactors: Partial<Record<StatKey, number>> = {},
 ): UpgradeState {
   // Deep-copy mutable state
   const attack: StatueTemplate[] = state.attack.map(t => ({
@@ -169,20 +176,20 @@ export function iterateUpgrades(
     for (let i = 0; i < 5; i++) {
       // Move A: single-feather upgrades
       for (let slotIdx = 0; slotIdx < attack[i].feathers.length; slotIdx++) {
-        const m = tryMove(attack[i], 'attack', i, poolRemaining, weights, 'single', slotIdx);
+        const m = tryMove(attack[i], 'attack', i, poolRemaining, weights, 'single', attackNormFactors, slotIdx);
         if (m) candidates.push(m);
       }
       // Move B: lift
-      const liftA = tryMove(attack[i], 'attack', i, poolRemaining, weights, 'lift');
+      const liftA = tryMove(attack[i], 'attack', i, poolRemaining, weights, 'lift', attackNormFactors);
       if (liftA) candidates.push(liftA);
     }
 
     for (let i = 0; i < 5; i++) {
       for (let slotIdx = 0; slotIdx < defense[i].feathers.length; slotIdx++) {
-        const m = tryMove(defense[i], 'defense', i, poolRemaining, weights, 'single', slotIdx);
+        const m = tryMove(defense[i], 'defense', i, poolRemaining, weights, 'single', defenseNormFactors, slotIdx);
         if (m) candidates.push(m);
       }
-      const liftD = tryMove(defense[i], 'defense', i, poolRemaining, weights, 'lift');
+      const liftD = tryMove(defense[i], 'defense', i, poolRemaining, weights, 'lift', defenseNormFactors);
       if (liftD) candidates.push(liftD);
     }
 
@@ -217,13 +224,15 @@ export function iterateUpgrades(
 export function totalScore(
   state: UpgradeState,
   weights: Partial<Record<StatKey, number>>,
+  attackNormFactors: Partial<Record<StatKey, number>> = {},
+  defenseNormFactors: Partial<Record<StatKey, number>> = {},
 ): number {
   let score = 0;
   for (const statue of state.attack) {
-    score += statueScore(statue, 'attack', weights);
+    score += statueScore(statue, 'attack', weights, attackNormFactors);
   }
   for (const statue of state.defense) {
-    score += statueScore(statue, 'defense', weights);
+    score += statueScore(statue, 'defense', weights, defenseNormFactors);
   }
   return score;
 }

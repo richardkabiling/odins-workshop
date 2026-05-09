@@ -41,6 +41,7 @@ export function buildModel(
   statWeights: Partial<Record<StatKey, number>>,
   minTier: number,
   budgets: Partial<Record<ConversionSet, number>>,
+  normFactors: Partial<Record<StatKey, number>> = {},
 ): GlpkModel {
   const eligible = eligibleFeathers(kind);
   const bonus = kind === 'attack' ? getAttackBonus(minTier) : getDefenseBonus(minTier);
@@ -57,9 +58,10 @@ export function buildModel(
       for (const [statStr, val] of Object.entries(tierData.stats) as [StatKey, number][]) {
         const weight = statWeights[statStr] ?? 0;
         if (weight === 0) continue;
+        const norm = normFactors[statStr] ?? 1;
         const pctCat = PCT_CATEGORY_MAP[statStr];
         const pct = pctCat ? (bonus.pct[pctCat] ?? 0) : 0;
-        coef += val * weight * (1 + pct / 100);
+        coef += (val / norm) * weight * (1 + pct / 100);
       }
 
       const name = varName(feather.id, t);
@@ -166,6 +168,8 @@ export function buildModel(
 export function buildPhase1Model(
   statWeights: Partial<Record<StatKey, number>>,
   totalBudgets: Partial<Record<ConversionSet, number>>,
+  attackNormFactors: Partial<Record<StatKey, number>> = {},
+  defenseNormFactors: Partial<Record<StatKey, number>> = {},
 ): GlpkModel {
   const attackBonus = getAttackBonus(1);
   const defenseBonus = getDefenseBonus(1);
@@ -205,9 +209,11 @@ export function buildPhase1Model(
       for (const [statStr, val] of Object.entries(tierData.stats) as [StatKey, number][]) {
         const weight = statWeights[statStr] ?? 0;
         if (weight === 0) continue;
+        const kindNormFactors = kind === 'attack' ? attackNormFactors : defenseNormFactors;
+        const norm = kindNormFactors[statStr as StatKey] ?? 1;
         const pctCat = PCT_CATEGORY_MAP[statStr];
         const pct = pctCat ? (bonus.pct[pctCat] ?? 0) : 0;
-        coef += val * weight * (1 + pct / 100);
+        coef += (val / norm) * weight * (1 + pct / 100);
       }
 
       objVars.push({ name, coef });
