@@ -7,7 +7,6 @@
  *   {
  *     inv: { [featherId]: count },
  *     ord: number[],   // 15 indices into ALL_STAT_KEYS representing ranking.order
- *     rat: number,     // ranking.ratio
  *     pvp: 1 | undefined,
  *   }
  */
@@ -53,7 +52,6 @@ export function encodeUrlState(state: UrlState): string {
       Object.entries(state.inventory.perFeather).filter(([, v]) => (v ?? 0) > 0),
     ),
     ord,
-    rat: ranking.ratio,
     ...(ranking.pvp ? { pvp: 1 } : {}),
     ...(!allOnes ? { gap: ranking.gaps } : {}),
   };
@@ -89,14 +87,13 @@ export function decodeUrlState(search: string): UrlState | null {
       new Set(ord).size === ord.length
     ) {
       const order = (ord as number[]).map((i) => ALL_STAT_KEYS[i]);
-      const ratio = typeof payload.rat === 'number' && payload.rat > 0 ? payload.rat : 1.5;
       const gapArr: unknown = payload.gap;
       const gaps = Array.isArray(gapArr) &&
         gapArr.length === order.length - 1 &&
         gapArr.every((g) => typeof g === 'number' && g >= 0)
         ? (gapArr as number[])
         : undefined;
-      ranking = { order, ratio, pvp, ...(gaps ? { gaps } : {}) };
+      ranking = { order, pvp, ...(gaps ? { gaps } : {}) };
     }
 
     return { inventory: { perFeather }, ranking };

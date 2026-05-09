@@ -7,15 +7,6 @@ export interface StatRanking {
   /** All 15 stats ordered by priority (index 0 = highest). One PvX variant is
    *  present depending on the pvp flag. */
   order: StatKey[];
-  /**
-   * Step size per gap unit, in range [0.01, 1].
-   * Geometric mode: base = 1 + ratio, weight(i) = (1 + ratio) ^ level[i]
-   * Linear mode:    weight(i) = 1 + level[i] * ratio
-   * ratio=0 → all equal weights; ratio=1 → maximum differentiation.
-   */
-  ratio: number;
-  /** If true, use additive (linear) decay instead of multiplicative (geometric). */
-  linear?: boolean;
   pvp: boolean;
   /**
    * Priority gaps between adjacent stats. gaps[i] >= 0 is the number of gap
@@ -26,29 +17,43 @@ export interface StatRanking {
 }
 
 /**
- * Convert a StatRanking into solver weights.
+ * Fibonacci sequence without repeats starting at 1: 1, 2, 3, 5, 8, 13, 21, …
+ * fib(0) = 1, fib(1) = 2, fib(n) = fib(n-1) + fib(n-2)
+ */
+export function fib(n: number): number {
+  if (n <= 0) return 1;
+  if (n === 1) return 2;
+  let a = 1, b = 2;
+  for (let i = 2; i <= n; i++) { [a, b] = [b, a + b]; }
+  return b;
+}
+
+/**
+ * Convert a StatRanking into solver weights using the Fibonacci sequence.
  *
- * Geometric (default): weight(i) = (1 + ratio) ^ level[i]
- * Linear:              weight(i) = 1 + level[i] * ratio
- *
- * level[i] = cumulative gap steps from stat i to the lowest-priority stat.
- * Stats sharing the same level get equal weight.
+ * Stats are grouped by consecutive gaps of 0. Each group is ranked from the
+ * bottom (rank 0 = lowest priority). The weight for a group at rank R is
+ * fib(R) = 1, 2, 3, 5, 8, 13, 21, … (no repeated values).
+ * Stats within the same group share the same weight.
  */
 export function weightsFromRanking(
   r: StatRanking,
 ): Partial<Record<StatKey, number>> {
-  if (r.ratio < 0) throw new RangeError(`StatRanking.ratio must be >= 0, got ${r.ratio}`);
   const n = r.order.length;
   const gaps = r.gaps ?? Array.from({ length: n - 1 }, () => 1);
-  const levels: number[] = new Array(n).fill(0);
-  for (let i = n - 2; i >= 0; i--) {
-    levels[i] = levels[i + 1] + (gaps[i] ?? 1);
+
+  // Assign a group index (0 = highest priority) to each stat
+  const groupOf: number[] = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    groupOf[i] = (gaps[i - 1] ?? 1) === 0 ? groupOf[i - 1] : groupOf[i - 1] + 1;
   }
+  const numGroups = (groupOf[n - 1] ?? 0) + 1;
+
   const result: Partial<Record<StatKey, number>> = {};
   for (let i = 0; i < n; i++) {
-    result[r.order[i]] = r.linear
-      ? 1 + levels[i] * r.ratio
-      : Math.pow(1 + r.ratio, levels[i]);
+    // rank from bottom: highest-priority group gets rank (numGroups - 1)
+    const rank = numGroups - 1 - groupOf[i];
+    result[r.order[i]] = fib(rank);
   }
   return result;
 }
@@ -77,51 +82,47 @@ export function swapPvX(order: StatKey[], pvp: boolean): StatKey[] {
 // Named presets (canonical order uses PvE variants; swapPvX handles pvp mode)
 // ---------------------------------------------------------------------------
 
-export type PresetName = 'Pure Offense' | 'Pure Defense' | 'Balanced' | 'Glass Cannon' | 'Tank';
+export type PresetName = 'Pure Offense' | 'Pure Defense' | 'Balanced';
 
 export const PRESETS: Record<string, Omit<StatRanking, 'pvp'>> = {
   'Pure Offense': {
-    ratio: 0.7,
-    linear: false,
     order: [
-      'PvEDmgBonus', 'IgnorePDEF', 'IgnoreMDEF', 'PDMG', 'MDMG',
-      'PATK', 'MATK', 'INTDEXSTR',
-      'PDEF', 'MDEF', 'HP', 'PDMGReduction', 'MDMGReduction',
-      'PvEDmgReduction', 'VIT',
+      'PvEDmgBonus',
+      'IgnorePDEF', 'IgnoreMDEF',
+      'PDMG', 'MDMG',
+      'INTDEXSTR',
+      'PATK', 'MATK',
+      'PvEDmgReduction',
+      'PDMGReduction', 'MDMGReduction',
+      'PDEF', 'MDEF',
+      'HP', 'VIT',
     ],
+    gaps: [1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1],
   },
   'Pure Defense': {
-    ratio: 0.7,
-    linear: false,
     order: [
-      'PvEDmgReduction', 'PDMGReduction', 'MDMGReduction', 'PDEF', 'MDEF', 'HP', 'VIT',
-      'PvEDmgBonus', 'IgnorePDEF', 'IgnoreMDEF', 'PDMG', 'MDMG', 'PATK', 'MATK', 'INTDEXSTR',
+      'PvEDmgReduction',
+      'PDMGReduction', 'MDMGReduction',
+      'PDEF', 'MDEF',
+      'HP', 'VIT',
+      'PvEDmgBonus',
+      'IgnorePDEF', 'IgnoreMDEF',
+      'PDMG', 'MDMG',
+      'INTDEXSTR',
+      'PATK', 'MATK',
     ],
+    gaps: [1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0],
   },
   'Balanced': {
-    ratio: 0.3,
-    linear: false,
     order: [
-      'PvEDmgBonus', 'PvEDmgReduction', 'IgnorePDEF', 'PDMGReduction', 'PDMG',
-      'PDEF', 'MDMG', 'MDEF', 'PATK', 'HP', 'MATK', 'IgnoreMDEF',
-      'MDMGReduction', 'INTDEXSTR', 'VIT',
+      'PvEDmgBonus', 'PvEDmgReduction',
+      'IgnorePDEF', 'IgnoreMDEF',
+      'PDMG', 'MDMG', 'PDMGReduction', 'MDMGReduction',
+      'INTDEXSTR',
+      'PATK', 'MATK', 'PDEF', 'MDEF',
+      'HP', 'VIT',
     ],
-  },
-  'Glass Cannon': {
-    ratio: 1.0,
-    linear: false,
-    order: [
-      'PvEDmgBonus', 'IgnorePDEF', 'PDMG', 'IgnoreMDEF', 'MDMG', 'PATK', 'MATK', 'INTDEXSTR',
-      'PDEF', 'MDEF', 'HP', 'PDMGReduction', 'MDMGReduction', 'PvEDmgReduction', 'VIT',
-    ],
-  },
-  'Tank': {
-    ratio: 1.0,
-    linear: false,
-    order: [
-      'PvEDmgReduction', 'PDMGReduction', 'MDMGReduction', 'HP', 'PDEF', 'MDEF', 'VIT',
-      'PvEDmgBonus', 'IgnorePDEF', 'PDMG', 'IgnoreMDEF', 'MDMG', 'PATK', 'MATK', 'INTDEXSTR',
-    ],
+    gaps: [0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1],
   },
 };
 
@@ -136,9 +137,8 @@ export function applyPreset(name: PresetName, pvp: boolean): StatRanking {
   }
   return {
     order: swapPvX(preset.order, pvp),
-    ratio: preset.ratio,
-    linear: preset.linear ?? false,
     pvp,
+    ...(preset.gaps ? { gaps: preset.gaps } : {}),
   };
 }
 

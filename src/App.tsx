@@ -176,7 +176,7 @@ export default function App() {
       {/* Optimize tab */}
       {tab === 'optimize' && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
             <InventoryForm key={formKey} inventory={inventory} onChange={setInventory} onClear={handleClear} />
             <div style={{ position: 'sticky', top: 16 }}>
               <div className="card">

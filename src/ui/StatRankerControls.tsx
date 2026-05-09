@@ -41,18 +41,17 @@ const PRESET_NAMES: PresetName[] = [
   'Pure Offense',
   'Pure Defense',
   'Balanced',
-  'Glass Cannon',
-  'Tank',
 ];
 
 function detectPreset(ranking: StatRanking): PresetName | null {
   const canonical = swapPvX(ranking.order, false); // normalize to PvE
+  const rankingGaps = ranking.gaps ?? Array.from({ length: ranking.order.length - 1 }, () => 1);
   for (const [name, preset] of Object.entries(PRESETS)) {
+    const presetGaps = preset.gaps ?? Array.from({ length: preset.order.length - 1 }, () => 1);
     if (
-      Math.abs(preset.ratio - ranking.ratio) < 0.001 &&
-      (preset.linear ?? false) === (ranking.linear ?? false) &&
       preset.order.length === canonical.length &&
-      preset.order.every((s, i) => s === canonical[i])
+      preset.order.every((s, i) => s === canonical[i]) &&
+      presetGaps.every((g, i) => g === rankingGaps[i])
     ) {
       return name as PresetName;
     }
@@ -233,22 +232,6 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
     setSelected(new Set());
   }
 
-  /** Increase gap below stat i (makes stat i higher priority vs stat i+1). */
-  function increaseGapBelow(i: number) {
-    if (i >= ranking.order.length - 1) return;
-    const newGaps = [...gaps];
-    newGaps[i] = (newGaps[i] ?? 1) + 1;
-    applyChange(ranking.order, newGaps);
-  }
-
-  /** Decrease gap below stat i (min 0, which makes stat i same priority as stat i+1). */
-  function decreaseGapBelow(i: number) {
-    if (i >= ranking.order.length - 1) return;
-    const newGaps = [...gaps];
-    newGaps[i] = Math.max(0, (newGaps[i] ?? 1) - 1);
-    applyChange(ranking.order, newGaps);
-  }
-
   function handleRowClick(e: React.MouseEvent, i: number) {
     if (e.ctrlKey || e.metaKey) {
       const next = new Set(selected);
@@ -397,77 +380,11 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
         </div>
       </div>
 
-      {/* Decay mode + ratio */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          {/* Geometric / Linear toggle */}
-          <div style={{ flex: '0 0 auto' }}>
-            <div style={sectionLabel}>Decay Mode</div>
-            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-              <button
-                type="button"
-                style={{ ...toggleBase, padding: '6px 10px', background: !ranking.linear ? 'var(--accent)' : 'var(--surface)', color: !ranking.linear ? '#fff' : 'var(--muted)' }}
-                onClick={() => onChange({ ...ranking, linear: false })}
-              >
-                Geometric
-              </button>
-              <button
-                type="button"
-                style={{ ...toggleBase, padding: '6px 10px', background: ranking.linear ? 'var(--accent)' : 'var(--surface)', color: ranking.linear ? '#fff' : 'var(--muted)' }}
-                onClick={() => onChange({ ...ranking, linear: true })}
-              >
-                Linear
-              </button>
-            </div>
-          </div>
-          {/* Ratio input */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={sectionLabel}>Step Size (ratio)</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                type="range"
-                min={0.01}
-                max={1}
-                step={0.01}
-                value={ranking.ratio}
-                onChange={(e) => onChange({ ...ranking, ratio: parseFloat(e.target.value) })}
-                style={{ flex: 1, accentColor: 'var(--accent)', minWidth: 0 }}
-              />
-              <input
-                type="number"
-                min={0.01}
-                max={1}
-                step={0.01}
-                value={ranking.ratio}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (!isNaN(v) && v >= 0.01 && v <= 1) onChange({ ...ranking, ratio: Math.round(v * 100) / 100 });
-                }}
-                style={{
-                  width: 58,
-                  padding: '4px 6px',
-                  fontSize: 13,
-                  fontFamily: 'inherit',
-                  fontWeight: 600,
-                  background: 'var(--surface2)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 5,
-                  color: 'var(--text)',
-                  textAlign: 'right',
-                  flexShrink: 0,
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Stat ranking list */}
       <div>
         <div style={sectionLabel}>Stat Priority</div>
         <p style={{ color: 'var(--muted)', fontSize: 11, marginBottom: 6, lineHeight: 1.4 }}>
-          Drag ⠿ to reorder groups · inside a group, drag or ▲/▼ to reorder/extract · Ctrl/Shift+click then drag to auto-group on drop
+          Drag ⠿ to reorder · ⛓↑⛓↓ to link with neighbour · ⛓️‍💥 to unlink · Ctrl/Shift+click to multi-select, then drag to group
         </p>
         <div
           ref={listRef}
@@ -533,26 +450,21 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
               const groupBeingDragged = isDragging && groupIndices.every(i => draggedStatSet.has(ranking.order[i]));
               const anySelected = groupIndices.some(i => selected.has(i));
 
-              // Gap controls rendered on the group header (between this group and the next)
-              const gapControls = lastIdx < ranking.order.length - 1 ? (() => {
-                const gap = gapAfterGroup ?? 1;
-                const fmt = (v: number) => v % 1 === 0 ? v.toFixed(0) : v.toPrecision(3).replace(/\.?0+$/, '');
-                const multLabel = ranking.linear
-                  ? `+${fmt(gap * ranking.ratio)}`
-                  : `×${fmt(Math.pow(1 + ranking.ratio, gap))}`;
-                return (
-                  <>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', minWidth: 34, textAlign: 'right', flexShrink: 0, letterSpacing: '-0.01em' }}>
-                      {multLabel}
-                    </span>
-                    <div style={{ display: 'flex', gap: 2 }}>
-                      <button type="button" style={{ ...arrowBtn, opacity: isDragging ? 0.3 : 1 }} disabled={isDragging} onClick={(e) => { e.stopPropagation(); increaseGapBelow(lastIdx); }} title="Increase priority gap">▲</button>
-                      <button type="button" style={{ ...arrowBtn, opacity: isDragging || gap <= 0 ? 0.3 : 1 }} onClick={(e) => { e.stopPropagation(); decreaseGapBelow(lastIdx); }} disabled={isDragging || gap <= 0} title="Decrease priority gap">▼</button>
-                      <button type="button" style={{ ...arrowBtn, opacity: isDragging ? 0.3 : 1, fontSize: 13, padding: '1px 5px' }} onClick={(e) => { e.stopPropagation(); if (!isDragging) { const g = [...gaps]; g[lastIdx] = 0; applyChange(ranking.order, g); } }} disabled={isDragging} title={isSingle ? 'Set same priority as stat below' : 'Merge next stat/group into this group'}>=</button>
-                    </div>
-                  </>
-                );
-              })() : null;
+              // Gap controls rendered on the group header
+              const linkUpBtn = firstIdx > 0 ? (
+                <button type="button" style={{ ...arrowBtn, opacity: isDragging ? 0.3 : 1, fontSize: 13, padding: '1px 5px' }} onClick={(e) => { e.stopPropagation(); if (!isDragging) { const g = [...gaps]; g[firstIdx - 1] = 0; applyChange(ranking.order, g); } }} disabled={isDragging} title={isSingle ? 'Set same priority as stat above' : 'Merge group above into this group'}>⛓↑</button>
+              ) : null;
+              const unlinkGroupBtn = !isSingle ? (
+                <button type="button" style={{ ...arrowBtn, opacity: isDragging ? 0.3 : 1, fontSize: 13, padding: '1px 5px' }} onClick={(e) => { e.stopPropagation(); if (!isDragging) { const g = [...gaps]; for (let j = firstIdx; j < lastIdx; j++) { if ((g[j] ?? 1) === 0) g[j] = 1; } applyChange(ranking.order, g); } }} disabled={isDragging} title="Unlink group (split all members)">⛓️‍💥</button>
+              ) : null;
+              const linkDownBtn = lastIdx < ranking.order.length - 1 ? (
+                <button type="button" style={{ ...arrowBtn, opacity: isDragging ? 0.3 : 1, fontSize: 13, padding: '1px 5px' }} onClick={(e) => { e.stopPropagation(); if (!isDragging) { const g = [...gaps]; g[lastIdx] = 0; applyChange(ranking.order, g); } }} disabled={isDragging} title={isSingle ? 'Set same priority as stat below' : 'Merge next stat/group into this group'}>⛓↓</button>
+              ) : null;
+              const gapControls = (linkUpBtn || unlinkGroupBtn || linkDownBtn) ? (
+                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                  {linkUpBtn}{unlinkGroupBtn}{linkDownBtn}
+                </div>
+              ) : null;
 
               // Shared header row (used both as the full row for singles and the header for multi-groups)
               const headerRow = (
@@ -671,30 +583,13 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
                         const statSelected = selected.has(statIdx);
                         const isFirst = pos === 0;
                         const isLast = pos === groupIndices.length - 1;
-                        const canMoveDown = !(isLast && lastIdx === ranking.order.length - 1);
                         const showChildDropBefore = dropInGroup?.groupFirstIdx === firstIdx && dropInGroup.beforePos === pos;
                         const showChildDropAfter = isLast && dropInGroup?.groupFirstIdx === firstIdx && dropInGroup.beforePos === groupIndices.length;
 
-                        function childMoveUp() {
-                          if (isFirst) {
-                            const { order: no, gaps: ng } = reorderWithGaps(ranking.order, gaps, [statIdx], firstIdx);
-                            applyChange(no, ng);
-                          } else {
-                            const no = [...ranking.order];
-                            [no[statIdx - 1], no[statIdx]] = [no[statIdx], no[statIdx - 1]];
-                            applyChange(no, [...gaps]);
-                          }
-                        }
-
-                        function childMoveDown() {
-                          if (isLast) {
-                            const { order: no, gaps: ng } = reorderWithGaps(ranking.order, gaps, [statIdx], lastIdx + 1);
-                            applyChange(no, ng);
-                          } else {
-                            const no = [...ranking.order];
-                            [no[statIdx], no[statIdx + 1]] = [no[statIdx + 1], no[statIdx]];
-                            applyChange(no, [...gaps]);
-                          }
+                        function childUnlink() {
+                          // Extract stat out of its group, placing it just above the group as its own rank
+                          const { order: no, gaps: ng } = reorderWithGaps(ranking.order, gaps, [statIdx], firstIdx);
+                          applyChange(no, ng);
                         }
 
                         return (
@@ -725,8 +620,7 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
                               >⠿</span>
                               <span style={{ flex: 1 }}>{STAT_LABELS[stat] ?? stat}</span>
                               <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                                <button type="button" style={{ ...arrowBtn, opacity: isDragging ? 0.3 : 1 }} disabled={isDragging} onClick={(e) => { e.stopPropagation(); childMoveUp(); }} title={isFirst ? 'Extract above group' : 'Move up within group'}>▲</button>
-                                <button type="button" style={{ ...arrowBtn, opacity: isDragging || !canMoveDown ? 0.3 : 1 }} disabled={isDragging || !canMoveDown} onClick={(e) => { e.stopPropagation(); childMoveDown(); }} title={isLast ? 'Extract below group' : 'Move down within group'}>▼</button>
+                                <button type="button" style={{ ...arrowBtn, opacity: isDragging ? 0.3 : 1, fontSize: 13, padding: '1px 5px' }} disabled={isDragging} onClick={(e) => { e.stopPropagation(); childUnlink(); }} title="Unlink from group">⛓️‍💥</button>
                               </div>
                             </div>
                             {showChildDropAfter && (

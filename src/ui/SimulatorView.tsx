@@ -39,7 +39,7 @@ const SETS: ConversionSet[] = ['STDN', 'LD', 'DN', 'ST', 'Purple'];
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function featherDisplayName(id: string) {
-  return id === 'Stats' ? 'Vigor/Faith/Glory' : id;
+  return id === 'Stats' ? 'Valor/Faith/Glory' : id;
 }
 
 export function makeEmptyStatues(): SimStatue[] {

@@ -6,7 +6,7 @@ import { STAT_LABELS } from '../data/statCategories';
 import { RarityDot, TypeChip } from './FeatherBadges';
 
 function featherDisplayName(id: string): string {
-  return id === 'Stats' ? 'Vigor/Faith/Glory' : id;
+  return id === 'Stats' ? 'Valor/Faith/Glory' : id;
 }
 
 const SETS: { id: ConversionSet; label: string }[] = [

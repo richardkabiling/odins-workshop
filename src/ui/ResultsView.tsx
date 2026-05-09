@@ -21,7 +21,7 @@ function toRoman(n: number): string {
 }
 
 function featherDisplayName(id: string): string {
-  return id === 'Stats' ? 'Vigor/Faith/Glory' : id;
+  return id === 'Stats' ? 'Valor/Faith/Glory' : id;
 }
 
 const PCT_LABELS: Record<string, string> = {
