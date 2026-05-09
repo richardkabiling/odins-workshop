@@ -1,12 +1,31 @@
 import type { ReactNode } from 'react';
-import type { Solution, StatueTemplate, ConversionSet, StatKey } from '../domain/types';
+import { useState } from 'react';
+import type { Solution, StatueTemplate, ConversionSet, StatKey, InventoryDiagnostic } from '../domain/types';
 import { featherById } from '../data/feathers.generated';
 import { getAttackBonus, getDefenseBonus } from '../data/setBonuses.generated';
 import { computeStatueStats, computeRawStats } from '../domain/scoring';
 import { STAT_LABELS, ATTACK_STATS, DEFENSE_STATS, PVE_STATS, PVP_STATS } from '../data/statCategories';
-import { PRESETS } from '../domain/presets';
-import type { Preset } from '../domain/presets';
+import { makeBlendedWeights } from '../domain/presets';
 import { featherImages } from './featherImages';
+
+export type Failure =
+  | { kind: 'generic'; message: string }
+  | { kind: 'inventory'; diagnostics: InventoryDiagnostic[] };
+
+function toRoman(n: number): string {
+  const table: [number, string][] = [
+    [20,'XX'],[19,'XIX'],[18,'XVIII'],[17,'XVII'],[16,'XVI'],
+    [15,'XV'],[14,'XIV'],[13,'XIII'],[12,'XII'],[11,'XI'],
+    [10,'X'],[9,'IX'],[8,'VIII'],[7,'VII'],[6,'VI'],
+    [5,'V'],[4,'IV'],[3,'III'],[2,'II'],[1,'I'],
+  ];
+  for (const [v, s] of table) if (n >= v) return s;
+  return String(n);
+}
+
+function featherDisplayName(id: string): string {
+  return id === 'Stats' ? 'Vigor/Faith/Glory' : id;
+}
 
 const PCT_LABELS: Record<string, string> = {
   attack: 'Attack %',
@@ -27,25 +46,44 @@ const ALL_STAT_KEYS: StatKey[] = [
 
 interface Props {
   solution: Solution | null;
-  error: string | null;
+  failure: Failure | null;
   atkPct: number;
   pvp: boolean;
 }
 
-export function ResultsView({ solution, error, atkPct, pvp }: Props) {
-  if (error) {
+export function ResultsView({ solution, failure, atkPct, pvp }: Props) {
+  if (failure) {
+    if (failure.kind === 'generic') {
+      return (
+        <div className="card" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}>
+          {failure.message}
+        </div>
+      );
+    }
+    // inventory failure
     return (
       <div className="card" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}>
-        {error}
+        <div style={{ fontWeight: 600, marginBottom: 8 }}>
+          Insufficient feathers to build 10 statues:
+        </div>
+        {failure.diagnostics.map((d, i) => (
+          <div key={i} style={{ marginBottom: 6 }}>
+            <div>
+              • {d.kind.charAt(0).toUpperCase() + d.kind.slice(1)} statues need {d.need} distinct {d.rarity.toLowerCase()} feather{d.need !== 1 ? 's' : ''}; you have {d.have}.
+            </div>
+            {d.missing.length > 0 && (
+              <div style={{ paddingLeft: 14, fontSize: 12, color: 'var(--danger)', opacity: 0.85 }}>
+                Missing: {d.missing.join(', ')}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     );
   }
   if (!solution) return null;
 
-  const atkPreset = pvp ? PRESETS.PvP_Atk : PRESETS.PvE_Atk;
-  const defPreset = pvp ? PRESETS.PvP_Def : PRESETS.PvE_Def;
-
-  void atkPct; // passed in but preset selection is done via pvp flag
+  const statWeights = makeBlendedWeights(atkPct, pvp);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -60,7 +98,7 @@ export function ResultsView({ solution, error, atkPct, pvp }: Props) {
         <h2 style={{ marginBottom: 10 }}>Attack Statues</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
           {solution.attack.map((t, i) => (
-            <StatueCard key={i} index={i + 1} template={t} kind="attack" preset={atkPreset} />
+            <StatueCard key={i} index={i + 1} template={t} kind="attack" statWeights={statWeights} />
           ))}
         </div>
       </section>
@@ -69,24 +107,24 @@ export function ResultsView({ solution, error, atkPct, pvp }: Props) {
         <h2 style={{ marginBottom: 10 }}>Defense Statues</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
           {solution.defense.map((t, i) => (
-            <StatueCard key={i} index={i + 1} template={t} kind="defense" preset={defPreset} />
+            <StatueCard key={i} index={i + 1} template={t} kind="defense" statWeights={statWeights} />
           ))}
         </div>
       </section>
 
       <TotalStatsSummary solution={solution} />
-      <BudgetSummary spentPerSet={solution.spentPerSet} />
+      <BudgetSummary spentPerSet={solution.spentPerSet} totalPerSet={solution.totalPerSet} />
     </div>
   );
 }
 
 function StatueCard({
-  index, template, kind, preset,
+  index, template, kind, statWeights,
 }: {
   index: number;
   template: StatueTemplate;
   kind: 'attack' | 'defense';
-  preset: Preset;
+  statWeights: Partial<Record<StatKey, number>>;
 }) {
   if (!template.feathers.length) {
     return (
@@ -106,7 +144,7 @@ function StatueCard({
 
   const statRows = ALL_STAT_KEYS
     .filter(k => (boosted[k] ?? 0) !== 0 || (raw[k] ?? 0) !== 0)
-    .sort((a, b) => (preset.statWeights[b] ?? 0) - (preset.statWeights[a] ?? 0))
+    .sort((a, b) => (statWeights[b] ?? 0) - (statWeights[a] ?? 0))
     .map(k => ({ key: k, rawVal: raw[k] ?? 0, boostedVal: boosted[k] ?? 0 }));
 
   return (
@@ -121,29 +159,10 @@ function StatueCard({
 
       {/* Section 1: Feathers */}
       <SectionLabel>Feathers</SectionLabel>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
-        {template.feathers.map(({ feather, tier }) => {
-          const def = featherById.get(feather)!;
-          return (
-            <div key={feather} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {featherImages[feather]
-                ? <img src={featherImages[feather]} alt={feather} style={{ width: 48, height: 48, objectFit: 'contain', flexShrink: 0 }} />
-                : <div style={{ width: 48, height: 48, background: 'var(--surface2)', borderRadius: 6, flexShrink: 0 }} />
-              }
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontWeight: 600 }}>{feather}</span>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <span className={`badge ${def.rarity.toLowerCase()}`} style={{ fontSize: 9, padding: '1px 4px' }}>{def.rarity}</span>
-                  <span className={`badge ${TYPE_CLASS[def.type]}`} style={{ fontSize: 9, padding: '1px 4px' }}>{def.type}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span style={{ background: 'var(--surface2)', borderRadius: 3, padding: '0 5px', fontSize: 11 }}>T{tier}</span>
-                  <span style={{ color: 'var(--muted)', fontSize: 10 }}>{def.tiers[tier]?.totalCost ?? 0} T1</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+        {template.feathers.map(({ feather, tier }) => (
+          <FeatherRow key={feather} feather={feather} tier={tier} />
+        ))}
       </div>
 
       {/* Section 2: Set Bonuses */}
@@ -186,6 +205,100 @@ function StatueCard({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function FeatherRow({ feather, tier }: { feather: string; tier: number }) {
+  const [hovered, setHovered] = useState(false);
+  const def = featherById.get(feather)!;
+  const t1Stats = Object.entries(def.tiers[1]?.stats ?? {}) as [string, number][];
+  const tierStats = Object.entries(def.tiers[tier]?.stats ?? {}) as [string, number][];
+  const allStatKeys = Array.from(new Set([...t1Stats.map(([k]) => k), ...tierStats.map(([k]) => k)]));
+
+  return (
+    <div
+      style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Image with tier overlay */}
+      <div style={{ position: 'relative', flexShrink: 0, width: 64, height: 64 }}>
+        {featherImages[feather]
+          ? <img src={featherImages[feather]} alt={feather} style={{ width: 64, height: 64, objectFit: 'contain' }} />
+          : <div style={{ width: 64, height: 64, background: 'var(--surface2)', borderRadius: 6 }} />
+        }
+        <div style={{
+          position: 'absolute', top: 2, left: 2,
+          background: 'rgba(255,255,255,0.25)',
+          borderRadius: 3,
+          padding: '1px 4px',
+          fontSize: 10,
+          fontWeight: 700,
+          color: '#4a9eff',
+          lineHeight: 1.4,
+          backdropFilter: 'blur(2px)',
+        }}>
+          {toRoman(tier)}
+        </div>
+      </div>
+
+      {/* Name / badges / cost */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ fontWeight: 600 }}>{featherDisplayName(feather)}</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <span className={`badge ${def.rarity.toLowerCase()}`} style={{ fontSize: 9, padding: '1px 4px' }}>{def.rarity}</span>
+          <span className={`badge ${TYPE_CLASS[def.type]}`} style={{ fontSize: 9, padding: '1px 4px' }}>{def.type}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ background: 'var(--surface2)', borderRadius: 3, padding: '0 5px', fontSize: 11 }}>T{tier}</span>
+          <span style={{ color: 'var(--muted)', fontSize: 10 }}>{def.tiers[tier]?.totalCost ?? 0} T1</span>
+        </div>
+      </div>
+
+      {/* Hover tooltip */}
+      {hovered && (
+        <div style={{
+          position: 'absolute', left: '100%', top: 0, zIndex: 100,
+          background: 'var(--surface2)',
+          border: '1px solid var(--border)',
+          opacity: 1,
+          borderRadius: 8,
+          padding: '10px 14px',
+          minWidth: 200,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
+          fontSize: 12,
+          pointerEvents: 'none',
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--muted)' }}>
+            T1 Stats
+          </div>
+          {t1Stats.map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+              <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k as keyof typeof STAT_LABELS] ?? k}</span>
+              <span style={{ fontWeight: 600 }}>+{v}</span>
+            </div>
+          ))}
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+          <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--muted)' }}>
+            T{tier} Stats
+          </div>
+          {allStatKeys.map(k => {
+            const t1Val = (def.tiers[1]?.stats as Record<string,number> ?? {})[k] ?? 0;
+            const tVal = (def.tiers[tier]?.stats as Record<string,number> ?? {})[k] ?? 0;
+            return (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                <span style={{ color: 'var(--muted)' }}>{STAT_LABELS[k as keyof typeof STAT_LABELS] ?? k}</span>
+                <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ color: 'var(--muted)', fontSize: 10 }}>+{t1Val}</span>
+                  <span style={{ color: 'var(--muted)', fontSize: 10 }}>→</span>
+                  <span style={{ fontWeight: 600, color: 'var(--green)' }}>+{tVal}</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -241,7 +354,7 @@ function TotalStatsSummary({ solution }: { solution: Solution }) {
   );
 }
 
-function BudgetSummary({ spentPerSet }: { spentPerSet: Partial<Record<ConversionSet, number>> }) {
+function BudgetSummary({ spentPerSet, totalPerSet }: { spentPerSet: Partial<Record<ConversionSet, number>>; totalPerSet: Partial<Record<ConversionSet, number>> }) {
   const sets = (Object.entries(spentPerSet) as [ConversionSet, number][]).filter(([, v]) => v > 0);
   if (sets.length === 0) return null;
   return (
@@ -252,7 +365,7 @@ function BudgetSummary({ spentPerSet }: { spentPerSet: Partial<Record<Conversion
           <div key={setId}>
             <span style={{ color: 'var(--muted)', fontSize: 12 }}>{setId}: </span>
             <span style={{ fontWeight: 600 }}>{spent}</span>
-            <span style={{ color: 'var(--muted)', fontSize: 12 }}> T1 feathers</span>
+            <span style={{ color: 'var(--muted)', fontSize: 12 }}> / {totalPerSet[setId] ?? '?'} T1 feathers</span>
           </div>
         ))}
       </div>

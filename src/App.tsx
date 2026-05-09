@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Inventory, Solution } from './domain/types';
+import type { Failure } from './ui/ResultsView';
 import { DEFAULT_RANKING } from './domain/ranking';
 import { optimize } from './solver/optimize';
 import { InventoryForm } from './ui/InventoryForm';
@@ -106,7 +107,12 @@ export default function App() {
 
       {(solution || error) && (
         <div ref={resultsRef} style={{ marginTop: 32 }}>
-          <ResultsView solution={solution} error={error} atkPct={solvedOffensivePct} pvp={solvedPvp} />
+          <ResultsView
+            solution={solution}
+            failure={error ? ({ kind: 'generic', message: error } satisfies Failure) : null}
+            atkPct={solvedOffensivePct}
+            pvp={solvedPvp}
+          />
         </div>
       )}
     </div>
