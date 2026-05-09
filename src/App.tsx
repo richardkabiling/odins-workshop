@@ -16,10 +16,12 @@ export default function App() {
   const initialRanking = initialUrl?.ranking ?? DEFAULT_RANKING;
 
   const [inventory, setInventory] = useState<Inventory>(initialUrl?.inventory ?? DEFAULT_INVENTORY);
+  // TODO(Task 6): replace offensivePct state with ranking once StatRankerControls is wired
   const [offensivePct, setOffensivePct] = useState(70);
   const [pvp, setPvp] = useState(initialRanking.pvp);
   const [loading, setLoading] = useState(false);
   const [solution, setSolution] = useState<Solution | null>(null);
+  // TODO(Task 6): replace solvedOffensivePct state with ranking once StatRankerControls is wired
   const [solvedOffensivePct, setSolvedOffensivePct] = useState(70);
   const [solvedPvp, setSolvedPvp] = useState(initialRanking.pvp);
   const [error, setError] = useState<string | null>(null);

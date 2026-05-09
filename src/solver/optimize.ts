@@ -240,13 +240,12 @@ export async function optimize(
   const result = greedyAllocate(attackSolutions, defenseSolutions, totalBudgets);
 
   if (!result) {
-    if (!phase1Feasible) {
-      return { ok: false, reason: 'inventory', diagnostics: inventoryDiagnostics };
-    }
     return {
       ok: false,
       reason: 'infeasible',
-      message: 'No feasible solution found. Check that you have enough feathers (need at least 4 orange + 1 purple eligible for each statue type).',
+      message: phase1Feasible
+        ? 'No feasible solution found. Budget may be insufficient to fill 10 statues simultaneously.'
+        : 'No feasible solution found. Check that you have enough feathers to cover all 10 statues.',
     };
   }
 
