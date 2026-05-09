@@ -7,12 +7,18 @@ export interface StatRanking {
   /** All 15 stats ordered by priority (index 0 = highest). One PvX variant is
    *  present depending on the pvp flag. */
   order: StatKey[];
-  /** Geometric decay ratio: 1.0 = equal weights, 2.0 = top stat weighs 2× the
-   *  next. Default 1.5. */
+  /**
+   * Step size per gap unit, in range [0.01, 1].
+   * Geometric mode: base = 1 + ratio, weight(i) = (1 + ratio) ^ level[i]
+   * Linear mode:    weight(i) = 1 + level[i] * ratio
+   * ratio=0 → all equal weights; ratio=1 → maximum differentiation.
+   */
   ratio: number;
+  /** If true, use additive (linear) decay instead of multiplicative (geometric). */
+  linear?: boolean;
   pvp: boolean;
   /**
-   * Priority gaps between adjacent stats. gaps[i] >= 0 is the number of geometric
+   * Priority gaps between adjacent stats. gaps[i] >= 0 is the number of gap
    * steps between order[i] and order[i+1]. gaps[i]=0 means same priority.
    * Length must be order.length - 1. Defaults to all 1s if absent.
    */
@@ -20,25 +26,29 @@ export interface StatRanking {
 }
 
 /**
- * Convert a StatRanking into solver weights using geometric decay:
- *   weight(i) = ratio ^ (N - 1 - i)
- * where i=0 is the highest-priority stat and gets ratio^(N-1).
+ * Convert a StatRanking into solver weights.
+ *
+ * Geometric (default): weight(i) = (1 + ratio) ^ level[i]
+ * Linear:              weight(i) = 1 + level[i] * ratio
+ *
+ * level[i] = cumulative gap steps from stat i to the lowest-priority stat.
+ * Stats sharing the same level get equal weight.
  */
 export function weightsFromRanking(
   r: StatRanking,
 ): Partial<Record<StatKey, number>> {
-  if (r.ratio <= 0) throw new RangeError(`StatRanking.ratio must be > 0, got ${r.ratio}`);
+  if (r.ratio < 0) throw new RangeError(`StatRanking.ratio must be >= 0, got ${r.ratio}`);
   const n = r.order.length;
   const gaps = r.gaps ?? Array.from({ length: n - 1 }, () => 1);
-  // level[i] = cumulative gap steps from stat i to the bottom
-  // weight(i) = ratio ^ level[i]; same level => same weight
   const levels: number[] = new Array(n).fill(0);
   for (let i = n - 2; i >= 0; i--) {
     levels[i] = levels[i + 1] + (gaps[i] ?? 1);
   }
   const result: Partial<Record<StatKey, number>> = {};
   for (let i = 0; i < n; i++) {
-    result[r.order[i]] = Math.pow(r.ratio, levels[i]);
+    result[r.order[i]] = r.linear
+      ? 1 + levels[i] * r.ratio
+      : Math.pow(1 + r.ratio, levels[i]);
   }
   return result;
 }
@@ -71,7 +81,8 @@ export type PresetName = 'Pure Offense' | 'Pure Defense' | 'Balanced' | 'Glass C
 
 export const PRESETS: Record<string, Omit<StatRanking, 'pvp'>> = {
   'Pure Offense': {
-    ratio: 1.7,
+    ratio: 0.7,
+    linear: false,
     order: [
       'PvEDmgBonus', 'IgnorePDEF', 'IgnoreMDEF', 'PDMG', 'MDMG',
       'PATK', 'MATK', 'INTDEXSTR',
@@ -80,14 +91,16 @@ export const PRESETS: Record<string, Omit<StatRanking, 'pvp'>> = {
     ],
   },
   'Pure Defense': {
-    ratio: 1.7,
+    ratio: 0.7,
+    linear: false,
     order: [
       'PvEDmgReduction', 'PDMGReduction', 'MDMGReduction', 'PDEF', 'MDEF', 'HP', 'VIT',
       'PvEDmgBonus', 'IgnorePDEF', 'IgnoreMDEF', 'PDMG', 'MDMG', 'PATK', 'MATK', 'INTDEXSTR',
     ],
   },
   'Balanced': {
-    ratio: 1.3,
+    ratio: 0.3,
+    linear: false,
     order: [
       'PvEDmgBonus', 'PvEDmgReduction', 'IgnorePDEF', 'PDMGReduction', 'PDMG',
       'PDEF', 'MDMG', 'MDEF', 'PATK', 'HP', 'MATK', 'IgnoreMDEF',
@@ -95,14 +108,16 @@ export const PRESETS: Record<string, Omit<StatRanking, 'pvp'>> = {
     ],
   },
   'Glass Cannon': {
-    ratio: 2.0,
+    ratio: 1.0,
+    linear: false,
     order: [
       'PvEDmgBonus', 'IgnorePDEF', 'PDMG', 'IgnoreMDEF', 'MDMG', 'PATK', 'MATK', 'INTDEXSTR',
       'PDEF', 'MDEF', 'HP', 'PDMGReduction', 'MDMGReduction', 'PvEDmgReduction', 'VIT',
     ],
   },
   'Tank': {
-    ratio: 2.0,
+    ratio: 1.0,
+    linear: false,
     order: [
       'PvEDmgReduction', 'PDMGReduction', 'MDMGReduction', 'HP', 'PDEF', 'MDEF', 'VIT',
       'PvEDmgBonus', 'IgnorePDEF', 'PDMG', 'IgnoreMDEF', 'MDMG', 'PATK', 'MATK', 'INTDEXSTR',
@@ -122,6 +137,7 @@ export function applyPreset(name: PresetName, pvp: boolean): StatRanking {
   return {
     order: swapPvX(preset.order, pvp),
     ratio: preset.ratio,
+    linear: preset.linear ?? false,
     pvp,
   };
 }

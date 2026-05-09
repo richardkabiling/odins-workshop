@@ -50,6 +50,7 @@ function detectPreset(ranking: StatRanking): PresetName | null {
   for (const [name, preset] of Object.entries(PRESETS)) {
     if (
       Math.abs(preset.ratio - ranking.ratio) < 0.001 &&
+      (preset.linear ?? false) === (ranking.linear ?? false) &&
       preset.order.length === canonical.length &&
       preset.order.every((s, i) => s === canonical[i])
     ) {
@@ -396,6 +397,72 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
         </div>
       </div>
 
+      {/* Decay mode + ratio */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          {/* Geometric / Linear toggle */}
+          <div style={{ flex: '0 0 auto' }}>
+            <div style={sectionLabel}>Decay Mode</div>
+            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+              <button
+                type="button"
+                style={{ ...toggleBase, padding: '6px 10px', background: !ranking.linear ? 'var(--accent)' : 'var(--surface)', color: !ranking.linear ? '#fff' : 'var(--muted)' }}
+                onClick={() => onChange({ ...ranking, linear: false })}
+              >
+                Geometric
+              </button>
+              <button
+                type="button"
+                style={{ ...toggleBase, padding: '6px 10px', background: ranking.linear ? 'var(--accent)' : 'var(--surface)', color: ranking.linear ? '#fff' : 'var(--muted)' }}
+                onClick={() => onChange({ ...ranking, linear: true })}
+              >
+                Linear
+              </button>
+            </div>
+          </div>
+          {/* Ratio input */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={sectionLabel}>Step Size (ratio)</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="range"
+                min={0.01}
+                max={1}
+                step={0.01}
+                value={ranking.ratio}
+                onChange={(e) => onChange({ ...ranking, ratio: parseFloat(e.target.value) })}
+                style={{ flex: 1, accentColor: 'var(--accent)', minWidth: 0 }}
+              />
+              <input
+                type="number"
+                min={0.01}
+                max={1}
+                step={0.01}
+                value={ranking.ratio}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!isNaN(v) && v >= 0.01 && v <= 1) onChange({ ...ranking, ratio: Math.round(v * 100) / 100 });
+                }}
+                style={{
+                  width: 58,
+                  padding: '4px 6px',
+                  fontSize: 13,
+                  fontFamily: 'inherit',
+                  fontWeight: 600,
+                  background: 'var(--surface2)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 5,
+                  color: 'var(--text)',
+                  textAlign: 'right',
+                  flexShrink: 0,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stat ranking list */}
       <div>
         <div style={sectionLabel}>Stat Priority</div>
@@ -469,8 +536,10 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
               // Gap controls rendered on the group header (between this group and the next)
               const gapControls = lastIdx < ranking.order.length - 1 ? (() => {
                 const gap = gapAfterGroup ?? 1;
-                const multiplier = Math.pow(ranking.ratio, gap);
-                const multLabel = `${multiplier % 1 === 0 ? multiplier.toFixed(0) : multiplier.toPrecision(3).replace(/\.?0+$/, '')}×`;
+                const fmt = (v: number) => v % 1 === 0 ? v.toFixed(0) : v.toPrecision(3).replace(/\.?0+$/, '');
+                const multLabel = ranking.linear
+                  ? `+${fmt(gap * ranking.ratio)}`
+                  : `×${fmt(Math.pow(1 + ranking.ratio, gap))}`;
                 return (
                   <>
                     <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', minWidth: 34, textAlign: 'right', flexShrink: 0, letterSpacing: '-0.01em' }}>
@@ -478,7 +547,7 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
                     </span>
                     <div style={{ display: 'flex', gap: 2 }}>
                       <button type="button" style={{ ...arrowBtn, opacity: isDragging ? 0.3 : 1 }} disabled={isDragging} onClick={(e) => { e.stopPropagation(); increaseGapBelow(lastIdx); }} title="Increase priority gap">▲</button>
-                      <button type="button" style={{ ...arrowBtn, opacity: isDragging || gap <= 1 ? 0.3 : 1 }} onClick={(e) => { e.stopPropagation(); decreaseGapBelow(lastIdx); }} disabled={isDragging || gap <= 1} title="Decrease priority gap">▼</button>
+                      <button type="button" style={{ ...arrowBtn, opacity: isDragging || gap <= 0 ? 0.3 : 1 }} onClick={(e) => { e.stopPropagation(); decreaseGapBelow(lastIdx); }} disabled={isDragging || gap <= 0} title="Decrease priority gap">▼</button>
                       <button type="button" style={{ ...arrowBtn, opacity: isDragging ? 0.3 : 1, fontSize: 13, padding: '1px 5px' }} onClick={(e) => { e.stopPropagation(); if (!isDragging) { const g = [...gaps]; g[lastIdx] = 0; applyChange(ranking.order, g); } }} disabled={isDragging} title={isSingle ? 'Set same priority as stat below' : 'Merge next stat/group into this group'}>=</button>
                     </div>
                   </>
