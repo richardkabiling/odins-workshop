@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Inventory, Solution } from './domain/types';
+import { DEFAULT_RANKING } from './domain/ranking';
 import { optimize } from './solver/optimize';
 import { InventoryForm } from './ui/InventoryForm';
 import { OptimizationControls } from './ui/OptimizationControls';
@@ -11,14 +12,16 @@ const DEFAULT_INVENTORY: Inventory = { perFeather: {} };
 export default function App() {
   // Bootstrap from URL on first render
   const initialUrl = decodeUrlState(window.location.search);
+  // Derive legacy UI controls from ranking (ratio not yet exposed in UI — use defaults)
+  const initialRanking = initialUrl?.ranking ?? DEFAULT_RANKING;
 
   const [inventory, setInventory] = useState<Inventory>(initialUrl?.inventory ?? DEFAULT_INVENTORY);
-  const [offensivePct, setOffensivePct] = useState(initialUrl?.offensivePct ?? 70);
-  const [pvp, setPvp] = useState(initialUrl?.pvp ?? false);
+  const [offensivePct, setOffensivePct] = useState(70);
+  const [pvp, setPvp] = useState(initialRanking.pvp);
   const [loading, setLoading] = useState(false);
   const [solution, setSolution] = useState<Solution | null>(null);
-  const [solvedOffensivePct, setSolvedOffensivePct] = useState(initialUrl?.offensivePct ?? 70);
-  const [solvedPvp, setSolvedPvp] = useState(initialUrl?.pvp ?? false);
+  const [solvedOffensivePct, setSolvedOffensivePct] = useState(70);
+  const [solvedPvp, setSolvedPvp] = useState(initialRanking.pvp);
   const [error, setError] = useState<string | null>(null);
   // Key to force-remount InventoryForm when clearing (flushes local raw state)
   const [formKey, setFormKey] = useState(0);
@@ -49,7 +52,7 @@ export default function App() {
   // Auto-run optimize if URL already has state on initial load
   useEffect(() => {
     if (initialUrl) {
-      runOptimize(initialUrl.inventory, initialUrl.offensivePct, initialUrl.pvp).then(() => {
+      runOptimize(initialUrl.inventory, offensivePct, initialRanking.pvp).then(() => {
         setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       });
     }
@@ -57,7 +60,10 @@ export default function App() {
   }, []);
 
   async function handleOptimize() {
-    const qs = encodeUrlState({ inventory, offensivePct, pvp });
+    const qs = encodeUrlState({
+      inventory,
+      ranking: { ...DEFAULT_RANKING, pvp },
+    });
     window.history.pushState({}, '', `?${qs}`);
     await runOptimize(inventory, offensivePct, pvp);
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
