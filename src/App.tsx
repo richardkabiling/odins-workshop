@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Inventory, Solution, Failure } from './domain/types';
-import { DEFAULT_RANKING, swapPvX } from './domain/ranking';
+import { type StatRanking, DEFAULT_RANKING } from './domain/ranking';
 import { optimize } from './solver/optimize';
 import { InventoryForm } from './ui/InventoryForm';
-import { OptimizationControls } from './ui/OptimizationControls';
+import { StatRankerControls } from './ui/StatRankerControls';
 import { ResultsView } from './ui/ResultsView';
 import { encodeUrlState, decodeUrlState } from './lib/urlState';
 
@@ -16,30 +16,24 @@ export default function App() {
   const initialRanking = initialUrl?.ranking ?? DEFAULT_RANKING;
 
   const [inventory, setInventory] = useState<Inventory>(initialUrl?.inventory ?? DEFAULT_INVENTORY);
-  // TODO(Task 6): replace offensivePct state with ranking once StatRankerControls is wired
-  const [offensivePct, setOffensivePct] = useState(70);
-  const [pvp, setPvp] = useState(initialRanking.pvp);
+  const [ranking, setRanking] = useState<StatRanking>(initialRanking);
   const [loading, setLoading] = useState(false);
   const [solution, setSolution] = useState<Solution | null>(null);
-  // TODO(Task 6): replace solvedOffensivePct state with ranking once StatRankerControls is wired
-  const [solvedOffensivePct, setSolvedOffensivePct] = useState(70);
-  const [solvedPvp, setSolvedPvp] = useState(initialRanking.pvp);
+  const [solvedRanking, setSolvedRanking] = useState<StatRanking>(initialRanking);
   const [error, setError] = useState<string | null>(null);
   // Key to force-remount InventoryForm when clearing (flushes local raw state)
   const [formKey, setFormKey] = useState(0);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  const runOptimize = useCallback(async (inv: Inventory, _offPct: number, isPvp: boolean) => {
+  const runOptimize = useCallback(async (inv: Inventory, r: StatRanking) => {
     setLoading(true);
     setError(null);
     setSolution(null);
-    const ranking = { ...DEFAULT_RANKING, order: swapPvX(DEFAULT_RANKING.order, isPvp), pvp: isPvp };
     try {
-      const result = await optimize(inv, ranking);
+      const result = await optimize(inv, r);
       if (result.ok) {
         setSolution(result.solution);
-        setSolvedOffensivePct(_offPct);
-        setSolvedPvp(isPvp);
+        setSolvedRanking(r);
       } else if (result.reason === 'inventory') {
         setError('Insufficient inventory: ' + result.diagnostics.map(d => `${d.kind} ${d.rarity} needs ${d.need}, have ${d.have}`).join('; '));
       } else {
@@ -55,7 +49,7 @@ export default function App() {
   // Auto-run optimize if URL already has state on initial load
   useEffect(() => {
     if (initialUrl) {
-      runOptimize(initialUrl.inventory, offensivePct, initialRanking.pvp).then(() => {
+      runOptimize(initialUrl.inventory, initialRanking).then(() => {
         setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       });
     }
@@ -63,20 +57,17 @@ export default function App() {
   }, []);
 
   async function handleOptimize() {
-    const qs = encodeUrlState({
-      inventory,
-      ranking: { ...DEFAULT_RANKING, pvp },
-    });
+    const qs = encodeUrlState({ inventory, ranking });
     window.history.pushState({}, '', `?${qs}`);
-    await runOptimize(inventory, offensivePct, pvp);
+    await runOptimize(inventory, ranking);
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
   function handleClear() {
     window.history.pushState({}, '', window.location.pathname);
     setInventory(DEFAULT_INVENTORY);
-    setOffensivePct(70);
-    setPvp(false);
+    setRanking(DEFAULT_RANKING);
+    setSolvedRanking(DEFAULT_RANKING);
     setSolution(null);
     setError(null);
     setFormKey(k => k + 1);
@@ -95,11 +86,9 @@ export default function App() {
         <InventoryForm key={formKey} inventory={inventory} onChange={setInventory} onClear={handleClear} />
         <div style={{ position: 'sticky', top: 16 }}>
           <div className="card">
-            <OptimizationControls
-              atkPct={offensivePct}
-              pvp={pvp}
-              onAtkPctChange={setOffensivePct}
-              onPvpChange={setPvp}
+            <StatRankerControls
+              ranking={ranking}
+              onChange={setRanking}
               onOptimize={handleOptimize}
               loading={loading}
             />
@@ -112,8 +101,7 @@ export default function App() {
           <ResultsView
             solution={solution}
             failure={error ? ({ kind: 'generic', message: error } satisfies Failure) : null}
-            atkPct={solvedOffensivePct}
-            pvp={solvedPvp}
+            ranking={solvedRanking}
           />
         </div>
       )}

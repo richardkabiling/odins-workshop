@@ -5,7 +5,7 @@ import { featherById } from '../data/feathers.generated';
 import { getAttackBonus, getDefenseBonus } from '../data/setBonuses.generated';
 import { computeStatueStats, computeRawStats } from '../domain/scoring';
 import { STAT_LABELS, ATTACK_STATS, DEFENSE_STATS, PVE_STATS, PVP_STATS } from '../data/statCategories';
-import { makeBlendedWeights } from '../domain/presets';
+import { type StatRanking, weightsFromRanking } from '../domain/ranking';
 import { featherImages } from './featherImages';
 
 function toRoman(n: number): string {
@@ -43,11 +43,10 @@ const ALL_STAT_KEYS: StatKey[] = [
 interface Props {
   solution: Solution | null;
   failure: Failure | null;
-  atkPct: number;
-  pvp: boolean;
+  ranking: StatRanking;
 }
 
-export function ResultsView({ solution, failure, atkPct, pvp }: Props) {
+export function ResultsView({ solution, failure, ranking }: Props) {
   if (failure) {
     if (failure.kind === 'generic') {
       return (
@@ -79,7 +78,7 @@ export function ResultsView({ solution, failure, atkPct, pvp }: Props) {
   }
   if (!solution) return null;
 
-  const statWeights = makeBlendedWeights(atkPct, pvp);
+  const statWeights = weightsFromRanking(ranking);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
