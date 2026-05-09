@@ -16,87 +16,74 @@ import { featherById } from '../src/data/feathers.generated';
 // ---------------------------------------------------------------------------
 
 describe('weightsFromRanking', () => {
-  it('produces equal weights when ratio=1.0', () => {
+  it('all stats get weight 1 when all gaps are 0 (same group)', () => {
     const ranking: StatRanking = {
       order: ['PATK', 'MATK', 'PDMG', 'MDMG'] as StatKey[],
-      ratio: 1.0,
+      gaps: [0, 0, 0],
       pvp: false,
     };
     const weights = weightsFromRanking(ranking);
-    // 1^anything = 1
-    expect(weights['PATK']).toBeCloseTo(1.0);
-    expect(weights['MATK']).toBeCloseTo(1.0);
-    expect(weights['PDMG']).toBeCloseTo(1.0);
-    expect(weights['MDMG']).toBeCloseTo(1.0);
+    // Single group → rank 0 → fib(0) = 1 for all stats
+    expect(weights['PATK']).toBe(1);
+    expect(weights['MATK']).toBe(1);
+    expect(weights['PDMG']).toBe(1);
+    expect(weights['MDMG']).toBe(1);
   });
 
-  it('applies geometric decay correctly with ratio=1.5 and 3-stat order', () => {
+  it('produces Fibonacci weights for 3-stat order with default gaps', () => {
     const ranking: StatRanking = {
       order: ['PATK', 'MATK', 'PDMG'] as StatKey[],
-      ratio: 1.5,
       pvp: false,
+      // default gaps=[1,1] → 3 separate groups
     };
     const weights = weightsFromRanking(ranking);
-    // weight(i) = ratio^(N-1-i)  →  1.5^2, 1.5^1, 1.5^0
-    expect(weights['PATK']).toBeCloseTo(2.25);
-    expect(weights['MATK']).toBeCloseTo(1.5);
-    expect(weights['PDMG']).toBeCloseTo(1.0);
+    // numGroups=3: PATK rank=2→fib(2)=3, MATK rank=1→fib(1)=2, PDMG rank=0→fib(0)=1
+    expect(weights['PATK']).toBe(3);
+    expect(weights['MATK']).toBe(2);
+    expect(weights['PDMG']).toBe(1);
   });
 
-  it('top stat always gets ratio^(N-1) and bottom stat always gets 1.0', () => {
+  it('top stat always gets the highest Fibonacci weight', () => {
     const order: StatKey[] = ['IgnorePDEF', 'IgnoreMDEF', 'PATK', 'MATK', 'PDMG'];
-    const ranking: StatRanking = { order, ratio: 2.0, pvp: false };
+    const ranking: StatRanking = { order, pvp: false };
     const weights = weightsFromRanking(ranking);
-    const n = order.length;
-    // Top stat (index 0): 2^(5-1-0) = 2^4 = 16
-    expect(weights[order[0]]).toBeCloseTo(Math.pow(2.0, n - 1));
-    // Bottom stat (index N-1): 2^0 = 1
-    expect(weights[order[n - 1]]).toBeCloseTo(1.0);
+    // 5 separate groups → top stat gets fib(4)=8
+    expect(weights[order[0]]).toBe(8);
+    // Bottom stat gets fib(0)=1
+    expect(weights[order[order.length - 1]]).toBe(1);
   });
 
   it('gaps=0 between two stats gives them equal weight', () => {
     const ranking: StatRanking = {
       order: ['PATK', 'MATK', 'PDMG'] as StatKey[],
-      ratio: 2.0,
       pvp: false,
       gaps: [1, 0], // PATK > MATK == PDMG
     };
     const weights = weightsFromRanking(ranking);
-    // levels: PDMG=0, MATK=0, PATK=1
-    expect(weights['MATK']).toBeCloseTo(weights['PDMG']!);
-    expect(weights['PATK']).toBeCloseTo(2.0 * weights['MATK']!);
+    // MATK and PDMG in same group → same weight
+    expect(weights['MATK']).toBe(weights['PDMG']);
+    // PATK one rank above → next Fibonacci number
+    expect(weights['PATK']).toBeGreaterThan(weights['MATK']!);
   });
 
-  it('gap=2 doubles the multiplier step vs gap=1', () => {
+  it('single-stat ranking gets weight fib(0)=1', () => {
     const ranking: StatRanking = {
-      order: ['PATK', 'MATK', 'PDMG'] as StatKey[],
-      ratio: 2.0,
+      order: ['PATK'] as StatKey[],
       pvp: false,
-      gaps: [2, 1], // PATK 4x MATK, MATK 2x PDMG
     };
     const weights = weightsFromRanking(ranking);
-    // levels: PDMG=0, MATK=1, PATK=3
-    expect(weights['PDMG']).toBeCloseTo(1.0);
-    expect(weights['MATK']).toBeCloseTo(2.0);
-    expect(weights['PATK']).toBeCloseTo(8.0); // 2^3
+    expect(weights['PATK']).toBe(1);
   });
 
-  it('throws RangeError when ratio=0', () => {
+  it('two groups: top group gets fib(1)=2, bottom gets fib(0)=1', () => {
     const ranking: StatRanking = {
-      order: ['PATK'] as StatKey[],
-      ratio: 0,
+      order: ['PATK', 'MATK'] as StatKey[],
       pvp: false,
+      gaps: [1],
     };
-    expect(() => weightsFromRanking(ranking)).toThrow(RangeError);
-  });
-
-  it('throws RangeError when ratio is negative', () => {
-    const ranking: StatRanking = {
-      order: ['PATK'] as StatKey[],
-      ratio: -1,
-      pvp: false,
-    };
-    expect(() => weightsFromRanking(ranking)).toThrow(RangeError);
+    const weights = weightsFromRanking(ranking);
+    expect(weights['PATK']).toBe(2);
+    expect(weights['MATK']).toBe(1);
   });
 });
 
@@ -263,11 +250,9 @@ describe('PRESETS', () => {
     'Pure Offense',
     'Pure Defense',
     'Balanced',
-    'Glass Cannon',
-    'Tank',
   ];
 
-  it('contains all 5 expected preset names', () => {
+  it('contains all 3 expected preset names', () => {
     for (const name of EXPECTED_PRESET_NAMES) {
       expect(PRESETS).toHaveProperty(name);
     }

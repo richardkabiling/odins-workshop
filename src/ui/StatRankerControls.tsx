@@ -581,7 +581,6 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
                       {groupIndices.map((statIdx, pos) => {
                         const stat = ranking.order[statIdx];
                         const statSelected = selected.has(statIdx);
-                        const isFirst = pos === 0;
                         const isLast = pos === groupIndices.length - 1;
                         const showChildDropBefore = dropInGroup?.groupFirstIdx === firstIdx && dropInGroup.beforePos === pos;
                         const showChildDropAfter = isLast && dropInGroup?.groupFirstIdx === firstIdx && dropInGroup.beforePos === groupIndices.length;

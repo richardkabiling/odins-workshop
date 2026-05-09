@@ -27,7 +27,6 @@ export default function App() {
   const [ranking, setRanking] = useState<StatRanking>(initialRanking);
   const [loading, setLoading] = useState(false);
   const [solution, setSolution] = useState<Solution | null>(null);
-  const [solvedRanking, setSolvedRanking] = useState<StatRanking>(initialRanking);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [formKey, setFormKey] = useState(0);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -65,7 +64,6 @@ export default function App() {
       const result = await optimize(inv, r);
       if (result.ok) {
         setSolution(result.solution);
-        setSolvedRanking(r);
         setFailure(null);
       } else if (result.reason === 'inventory') {
         setFailure({ kind: 'inventory', diagnostics: result.diagnostics });
@@ -100,7 +98,6 @@ export default function App() {
     window.history.pushState({}, '', `?tab=optimize`);
     setInventory(DEFAULT_INVENTORY);
     setRanking(DEFAULT_RANKING);
-    setSolvedRanking(DEFAULT_RANKING);
     setSolution(null);
     setFailure(null);
     setFormKey(k => k + 1);
@@ -195,6 +192,7 @@ export default function App() {
               <ResultsView
                 solution={solution}
                 failure={failure}
+                ranking={ranking}
               />
             </div>
           )}
