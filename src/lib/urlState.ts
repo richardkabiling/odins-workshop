@@ -21,7 +21,8 @@ export interface UrlState {
   ranking: StatRanking;
 }
 
-// Full 17-key index table — both PvE and PvP variants get consistent indices.
+// Full 17-key index table (17 entries: both PvE and PvP variants) — ranking
+// orders are always a 15-entry subset (DEFAULT_RANKING.order.length).
 const ALL_STAT_KEYS: StatKey[] = [
   'PATK', 'MATK', 'IgnorePDEF', 'IgnoreMDEF', 'PDMG', 'MDMG',
   'PDEF', 'MDEF', 'HP', 'PDMGReduction', 'MDMGReduction',
@@ -81,8 +82,9 @@ export function decodeUrlState(search: string): UrlState | null {
     const ord: unknown = payload.ord;
     if (
       Array.isArray(ord) &&
-      ord.length === 15 &&
-      ord.every((i) => typeof i === 'number' && i >= 0 && i <= 16)
+      ord.length === DEFAULT_RANKING.order.length &&
+      ord.every((i) => typeof i === 'number' && i >= 0 && i <= 16) &&
+      new Set(ord).size === ord.length
     ) {
       const order = (ord as number[]).map((i) => ALL_STAT_KEYS[i]);
       const ratio = typeof payload.rat === 'number' && payload.rat > 0 ? payload.rat : 1.5;
