@@ -551,7 +551,7 @@ function SetupColumn({
             ? pickerTarget.slotIdx : null;
 
           return (
-            <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', background: 'var(--surface2)' }}>
+            <div key={si} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', background: 'var(--surface)' }}>
               {/* Statue header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>#{si + 1}{tpl ? ` · T${tpl.minTier}` : ''}</span>
