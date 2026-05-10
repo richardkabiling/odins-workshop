@@ -20,6 +20,12 @@ interface PickerTarget {
   slotIdx: number;
 }
 
+type Clipboard =
+  | { level: 'all'; attack: SimStatue[]; defense: SimStatue[] }
+  | { level: 'kind'; kind: 'attack' | 'defense'; statues: SimStatue[] }
+  | { level: 'statue'; kind: 'attack' | 'defense'; statueIdx: number; statue: SimStatue }
+  | { level: 'slot'; slot: SimSlot };
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const ROMAN = [
@@ -77,21 +83,7 @@ export function SimulatorView({
   const [pickerFeather, setPickerFeather] = useState<FeatherId | null>(null);
   const [pickerTier, setPickerTier] = useState<number>(1);
   const [ignoreLimits, setIgnoreLimits] = useState(false);
-  const [copySource, setCopySource] = useState<{ kind: 'attack' | 'defense'; statueIdx: number } | null>(null);
-
-  function handleCopy(kind: 'attack' | 'defense', statueIdx: number) {
-    setCopySource(prev =>
-      prev?.kind === kind && prev.statueIdx === statueIdx ? null : { kind, statueIdx },
-    );
-  }
-
-  function handlePaste(kind: 'attack' | 'defense', statueIdx: number) {
-    if (!copySource || copySource.kind !== kind) return;
-    const src = getStatues(kind)[copySource.statueIdx];
-    setStatues(kind, getStatues(kind).map((s, i) => i === statueIdx ? [...src] : s));
-    setCopySource(null);
-    setPickerTarget(null);
-  }
+  const [clipboard, setClipboard] = useState<Clipboard | null>(null);
 
   // ── Statue mutation helpers ─────────────────────────────────────────────
 
@@ -100,6 +92,84 @@ export function SimulatorView({
   }
   function setStatues(kind: 'attack' | 'defense', next: SimStatue[]) {
     kind === 'attack' ? onAttackChange(next) : onDefenseChange(next);
+  }
+
+  // ── Copy handlers ───────────────────────────────────────────────────────
+
+  function handleCopyAll() {
+    setClipboard({
+      level: 'all',
+      attack: attackStatues.map(s => [...s]),
+      defense: defenseStatues.map(s => [...s]),
+    });
+  }
+
+  function handleCopyKind(kind: 'attack' | 'defense') {
+    if (clipboard?.level === 'kind' && clipboard.kind === kind) { setClipboard(null); return; }
+    setClipboard({ level: 'kind', kind, statues: getStatues(kind).map(s => [...s]) });
+  }
+
+  function handleCopyStatue(kind: 'attack' | 'defense', statueIdx: number) {
+    if (clipboard?.level === 'statue' && clipboard.kind === kind && clipboard.statueIdx === statueIdx) {
+      setClipboard(null); return;
+    }
+    setClipboard({ level: 'statue', kind, statueIdx, statue: [...getStatues(kind)[statueIdx]] });
+  }
+
+  function handleCopySlot(kind: 'attack' | 'defense', statueIdx: number, slotIdx: number) {
+    setClipboard({ level: 'slot', slot: getStatues(kind)[statueIdx][slotIdx] });
+  }
+
+  // ── Paste handlers ──────────────────────────────────────────────────────
+
+  function handlePasteAll() {
+    if (clipboard?.level !== 'all') return;
+    onAttackChange(clipboard.attack.map(s => [...s]));
+    onDefenseChange(clipboard.defense.map(s => [...s]));
+  }
+
+  function handlePasteKind(kind: 'attack' | 'defense') {
+    if (clipboard?.level !== 'kind') return;
+    setStatues(kind, clipboard.statues.map(s => [...s]));
+  }
+
+  function handlePasteStatue(kind: 'attack' | 'defense', statueIdx: number) {
+    if (clipboard?.level !== 'statue') return;
+    setStatues(kind, getStatues(kind).map((s, i) => i === statueIdx ? [...clipboard.statue] : s));
+  }
+
+  function handlePasteSlot(kind: 'attack' | 'defense', statueIdx: number, slotIdx: number) {
+    if (clipboard?.level !== 'slot') return;
+    setStatues(kind, getStatues(kind).map((s, si) =>
+      si !== statueIdx ? s : s.map((sl, li) => li === slotIdx ? clipboard.slot : sl),
+    ));
+  }
+
+  // ── Other slot/tier handlers ────────────────────────────────────────────
+
+  function handleTierChange(kind: 'attack' | 'defense', statueIdx: number, slotIdx: number, delta: 1 | -1) {
+    const statues = getStatues(kind);
+    const slot = statues[statueIdx][slotIdx];
+    if (!slot) return;
+    const def = featherById.get(slot.feather);
+    if (!def) return;
+    const newTier = slot.tier + delta;
+    if (!def.tiers[newTier]) return;
+    setStatues(kind, statues.map((s, si) =>
+      si !== statueIdx ? s : s.map((sl, li) => li === slotIdx ? { feather: slot.feather, tier: newTier } : sl),
+    ));
+    if (pickerTarget?.kind === kind && pickerTarget.statueIdx === statueIdx && pickerTarget.slotIdx === slotIdx) {
+      setPickerTier(newTier);
+    }
+  }
+
+  function handleRemoveSlot(kind: 'attack' | 'defense', statueIdx: number, slotIdx: number) {
+    setStatues(kind, getStatues(kind).map((s, si) =>
+      si !== statueIdx ? s : s.map((sl, li) => li === slotIdx ? null : sl),
+    ));
+    if (pickerTarget?.kind === kind && pickerTarget.statueIdx === statueIdx && pickerTarget.slotIdx === slotIdx) {
+      setPickerTarget(null);
+    }
   }
 
   function openPicker(kind: 'attack' | 'defense', statueIdx: number, slotIdx: number) {
@@ -274,9 +344,61 @@ export function SimulatorView({
         );
       })()}
 
+      {/* ── Clipboard ─────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          onClick={handleCopyAll}
+          style={{
+            fontSize: 12, padding: '4px 12px', borderRadius: 6,
+            background: clipboard?.level === 'all' ? 'var(--accent)' : 'var(--surface2)',
+            color: clipboard?.level === 'all' ? '#fff' : 'var(--muted)',
+            border: `1.5px solid ${clipboard?.level === 'all' ? 'var(--accent)' : 'var(--border)'}`,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          📋 Copy Full Setup
+        </button>
+      </div>
+
+      {clipboard && (
+        <ClipboardCard
+          clipboard={clipboard}
+          onClear={() => setClipboard(null)}
+          onPasteAll={handlePasteAll}
+        />
+      )}
+
       {/* Attack Statues */}
       <section>
-        <h2 style={{ marginBottom: 10 }}>Attack Statues</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h2>Attack Statues</h2>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {clipboard?.level === 'kind' && clipboard.kind === 'attack' && (
+              <button
+                onClick={() => handlePasteKind('attack')}
+                style={{
+                  fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 5,
+                  background: 'var(--accent)', color: '#fff',
+                  border: '1.5px solid var(--accent)', cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Paste All
+              </button>
+            )}
+            <button
+              onClick={() => handleCopyKind('attack')}
+              style={{
+                fontSize: 11, padding: '3px 8px', borderRadius: 5,
+                background: clipboard?.level === 'kind' && clipboard.kind === 'attack' ? 'var(--accent)' : 'var(--surface2)',
+                color: clipboard?.level === 'kind' && clipboard.kind === 'attack' ? '#fff' : 'var(--muted)',
+                border: `1.5px solid ${clipboard?.level === 'kind' && clipboard.kind === 'attack' ? 'var(--accent)' : 'var(--border)'}`,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {clipboard?.level === 'kind' && clipboard.kind === 'attack' ? '✕ Cancel' : 'Copy All'}
+            </button>
+          </div>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
           {attackStatues.map((statue, i) => (
             <StatueSimCard
@@ -290,10 +412,16 @@ export function SimulatorView({
                   : null
               }
               onSlotClick={slotIdx => openPicker('attack', i, slotIdx)}
-              isCopySource={copySource?.kind === 'attack' && copySource.statueIdx === i}
-              isPasteTarget={copySource?.kind === 'attack' && copySource.statueIdx !== i}
-              onCopy={() => handleCopy('attack', i)}
-              onPaste={() => handlePaste('attack', i)}
+              isCopySource={clipboard?.level === 'statue' && clipboard.kind === 'attack' && clipboard.statueIdx === i}
+              showStatuePaste={clipboard?.level === 'statue'}
+              onCopyStatue={() => handleCopyStatue('attack', i)}
+              onPasteStatue={() => handlePasteStatue('attack', i)}
+              onTierChange={(slotIdx, delta) => handleTierChange('attack', i, slotIdx, delta)}
+              onRemoveSlot={slotIdx => handleRemoveSlot('attack', i, slotIdx)}
+              showSlotPaste={clipboard?.level === 'slot'}
+              onCopySlot={slotIdx => handleCopySlot('attack', i, slotIdx)}
+              onPasteSlot={slotIdx => handlePasteSlot('attack', i, slotIdx)}
+              slotClipboard={clipboard?.level === 'slot' ? clipboard.slot : undefined}
             />
           ))}
         </div>
@@ -301,7 +429,35 @@ export function SimulatorView({
 
       {/* Defense Statues */}
       <section>
-        <h2 style={{ marginBottom: 10 }}>Defense Statues</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h2>Defense Statues</h2>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {clipboard?.level === 'kind' && clipboard.kind === 'defense' && (
+              <button
+                onClick={() => handlePasteKind('defense')}
+                style={{
+                  fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 5,
+                  background: 'var(--accent)', color: '#fff',
+                  border: '1.5px solid var(--accent)', cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Paste All
+              </button>
+            )}
+            <button
+              onClick={() => handleCopyKind('defense')}
+              style={{
+                fontSize: 11, padding: '3px 8px', borderRadius: 5,
+                background: clipboard?.level === 'kind' && clipboard.kind === 'defense' ? 'var(--accent)' : 'var(--surface2)',
+                color: clipboard?.level === 'kind' && clipboard.kind === 'defense' ? '#fff' : 'var(--muted)',
+                border: `1.5px solid ${clipboard?.level === 'kind' && clipboard.kind === 'defense' ? 'var(--accent)' : 'var(--border)'}`,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {clipboard?.level === 'kind' && clipboard.kind === 'defense' ? '✕ Cancel' : 'Copy All'}
+            </button>
+          </div>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
           {defenseStatues.map((statue, i) => (
             <StatueSimCard
@@ -315,10 +471,16 @@ export function SimulatorView({
                   : null
               }
               onSlotClick={slotIdx => openPicker('defense', i, slotIdx)}
-              isCopySource={copySource?.kind === 'defense' && copySource.statueIdx === i}
-              isPasteTarget={copySource?.kind === 'defense' && copySource.statueIdx !== i}
-              onCopy={() => handleCopy('defense', i)}
-              onPaste={() => handlePaste('defense', i)}
+              isCopySource={clipboard?.level === 'statue' && clipboard.kind === 'defense' && clipboard.statueIdx === i}
+              showStatuePaste={clipboard?.level === 'statue'}
+              onCopyStatue={() => handleCopyStatue('defense', i)}
+              onPasteStatue={() => handlePasteStatue('defense', i)}
+              onTierChange={(slotIdx, delta) => handleTierChange('defense', i, slotIdx, delta)}
+              onRemoveSlot={slotIdx => handleRemoveSlot('defense', i, slotIdx)}
+              showSlotPaste={clipboard?.level === 'slot'}
+              onCopySlot={slotIdx => handleCopySlot('defense', i, slotIdx)}
+              onPasteSlot={slotIdx => handlePasteSlot('defense', i, slotIdx)}
+              slotClipboard={clipboard?.level === 'slot' ? clipboard.slot : undefined}
             />
           ))}
         </div>
@@ -582,11 +744,158 @@ export function SimulatorView({
   );
 }
 
+// ─── ClipboardCard ────────────────────────────────────────────────────────────
+
+function SlotMiniChip({ slot }: { slot: NonNullable<SimSlot> }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ position: 'relative', flexShrink: 0, width: 26, height: 26 }}>
+        {featherImages[slot.feather]
+          ? <img src={featherImages[slot.feather]} alt={slot.feather} style={{ width: 26, height: 26, objectFit: 'contain', borderRadius: 3 }} />
+          : <div style={{ width: 26, height: 26, background: 'var(--border)', borderRadius: 3 }} />
+        }
+        <div style={{
+          position: 'absolute', top: 1, left: 1,
+          background: 'rgba(0,0,0,0.5)', borderRadius: 2,
+          padding: '0 2px', fontSize: 7, fontWeight: 700, color: '#4a9eff', lineHeight: 1.6,
+        }}>
+          {ROMAN[slot.tier]}
+        </div>
+      </div>
+      <div style={{ fontSize: 10, lineHeight: 1.3 }}>
+        <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
+          {featherDisplayName(slot.feather)}
+        </div>
+        <div style={{ color: 'var(--muted)' }}>T{slot.tier}</div>
+      </div>
+    </div>
+  );
+}
+
+function StatueMiniPreview({ statue }: { statue: SimStatue }) {
+  const filled = statue.filter((s): s is NonNullable<SimSlot> => s !== null);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {filled.length === 0
+        ? <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>empty</span>
+        : filled.map((s, i) => <SlotMiniChip key={i} slot={s} />)
+      }
+    </div>
+  );
+}
+
+function KindMiniPreview({ statues }: { statues: SimStatue[] }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+      {statues.map((statue, i) => (
+        <div key={i}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', marginBottom: 4 }}>#{i + 1}</div>
+          <StatueMiniPreview statue={statue} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ClipboardCard({
+  clipboard, onClear, onPasteAll,
+}: {
+  clipboard: Clipboard;
+  onClear: () => void;
+  onPasteAll: () => void;
+}) {
+  const label =
+    clipboard.level === 'all' ? 'Full Setup (Attack + Defense)' :
+    clipboard.level === 'kind' ? `All ${clipboard.kind === 'attack' ? 'Attack' : 'Defense'} Statues` :
+    clipboard.level === 'statue' ? `${clipboard.kind === 'attack' ? 'Attack' : 'Defense'} Statue #${clipboard.statueIdx + 1}` :
+    clipboard.level === 'slot' && clipboard.slot
+      ? `Slot: ${featherDisplayName(clipboard.slot.feather)} T${clipboard.slot.tier}`
+      : 'Empty Slot';
+
+  return (
+    <div className="card" style={{ borderColor: 'var(--accent)', background: 'rgba(91,79,207,0.06)' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13 }}>📋</span>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Clipboard</span>
+          <span style={{
+            fontSize: 11, padding: '1px 7px', borderRadius: 10,
+            background: 'var(--accent)', color: '#fff',
+          }}>
+            {label}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {clipboard.level === 'all' && (
+            <button
+              onClick={onPasteAll}
+              style={{
+                fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 5,
+                background: 'var(--accent)', color: '#fff',
+                border: '1.5px solid var(--accent)', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Paste Full Setup
+            </button>
+          )}
+          <button
+            onClick={onClear}
+            style={{
+              fontSize: 11, padding: '2px 8px', borderRadius: 5,
+              background: 'var(--surface2)', color: 'var(--muted)',
+              border: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            ✕ Clear
+          </button>
+        </div>
+      </div>
+
+      {/* Preview */}
+      <div style={{ overflowX: 'auto' }}>
+        {clipboard.level === 'all' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--muted)', marginBottom: 6 }}>
+                Attack
+              </div>
+              <KindMiniPreview statues={clipboard.attack} />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--muted)', marginBottom: 6 }}>
+                Defense
+              </div>
+              <KindMiniPreview statues={clipboard.defense} />
+            </div>
+          </div>
+        )}
+        {clipboard.level === 'kind' && <KindMiniPreview statues={clipboard.statues} />}
+        {clipboard.level === 'statue' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, auto)', gap: 12, width: 'fit-content' }}>
+            {clipboard.statue.filter((s): s is NonNullable<SimSlot> => s !== null).map((s, i) => (
+              <SlotMiniChip key={i} slot={s} />
+            ))}
+          </div>
+        )}
+        {clipboard.level === 'slot' && clipboard.slot && (
+          <SlotMiniChip slot={clipboard.slot} />
+        )}
+        {clipboard.level === 'slot' && !clipboard.slot && (
+          <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>Empty slot</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── StatueSimCard ────────────────────────────────────────────────────────────
 
 function StatueSimCard({
   index, kind, statue, selectedSlot, onSlotClick,
-  isCopySource, isPasteTarget, onCopy, onPaste,
+  isCopySource, showStatuePaste, onCopyStatue, onPasteStatue,
+  onTierChange, onRemoveSlot,
+  showSlotPaste, onCopySlot, onPasteSlot, slotClipboard,
 }: {
   index: number;
   kind: 'attack' | 'defense';
@@ -594,9 +903,15 @@ function StatueSimCard({
   selectedSlot: number | null;
   onSlotClick: (slotIdx: number) => void;
   isCopySource: boolean;
-  isPasteTarget: boolean;
-  onCopy: () => void;
-  onPaste: () => void;
+  showStatuePaste: boolean;
+  onCopyStatue: () => void;
+  onPasteStatue: () => void;
+  onTierChange: (slotIdx: number, delta: 1 | -1) => void;
+  onRemoveSlot: (slotIdx: number) => void;
+  showSlotPaste: boolean;
+  onCopySlot: (slotIdx: number) => void;
+  onPasteSlot: (slotIdx: number) => void;
+  slotClipboard?: SimSlot;
 }) {
   const tpl = statueTemplate(statue);
   const bonus = tpl
@@ -648,34 +963,32 @@ function StatueSimCard({
               T{tpl.minTier} set
             </span>
           )}
-          {isPasteTarget ? (
+          {showStatuePaste && (
             <button
-              onClick={onPaste}
+              onClick={onPasteStatue}
               title="Paste copied statue here"
               style={{
                 fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
                 background: 'var(--accent)', color: '#fff',
-                border: '1.5px solid var(--accent)', cursor: 'pointer',
-                fontFamily: 'inherit',
+                border: '1.5px solid var(--accent)', cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
               Paste
             </button>
-          ) : (
-            <button
-              onClick={onCopy}
-              title={isCopySource ? 'Cancel copy' : 'Copy this statue'}
-              style={{
-                fontSize: 11, padding: '2px 6px', borderRadius: 4,
-                background: isCopySource ? 'var(--accent)' : 'var(--surface2)',
-                color: isCopySource ? '#fff' : 'var(--muted)',
-                border: `1.5px solid ${isCopySource ? 'var(--accent)' : 'var(--border)'}`,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >
-              {isCopySource ? '✕ Cancel' : 'Copy'}
-            </button>
           )}
+          <button
+            onClick={onCopyStatue}
+            title={isCopySource ? 'Cancel copy' : 'Copy this statue'}
+            style={{
+              fontSize: 11, padding: '2px 6px', borderRadius: 4,
+              background: isCopySource ? 'var(--accent)' : 'var(--surface2)',
+              color: isCopySource ? '#fff' : 'var(--muted)',
+              border: `1.5px solid ${isCopySource ? 'var(--accent)' : 'var(--border)'}`,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {isCopySource ? '✕ Cancel' : 'Copy'}
+          </button>
         </div>
       </div>
 
@@ -684,6 +997,8 @@ function StatueSimCard({
         {statue.map((slot, slotIdx) => {
           const isSelected = selectedSlot === slotIdx;
           const slotDef = slot ? featherById.get(slot.feather) : null;
+          const canUp = slot && !!slotDef?.tiers[slot.tier + 1];
+          const canDown = slot && slot.tier > 1 && !!slotDef?.tiers[slot.tier - 1];
           const slotButton = (
             <button
               key={slotIdx}
@@ -698,7 +1013,7 @@ function StatueSimCard({
                   ? '1.5px solid var(--accent)'
                   : `1.5px dashed ${slot ? 'transparent' : 'var(--border)'}`,
                 textAlign: 'left', fontFamily: 'inherit',
-                color: 'var(--text)', width: '100%',
+                color: 'var(--text)', flex: 1,
                 transition: 'background 0.1s',
               }}
             >
@@ -742,11 +1057,62 @@ function StatueSimCard({
               )}
             </button>
           );
+          const slotBtnStyle = (active = false, danger = false): React.CSSProperties => ({
+            width: 22, height: 22, border: '1px solid var(--border)',
+            borderRadius: 4, background: active ? 'var(--accent)' : 'var(--surface2)',
+            color: danger ? 'var(--muted)' : active ? '#fff' : 'var(--muted)',
+            cursor: 'pointer', fontSize: 11, lineHeight: 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'inherit',
+          });
+          const actionBtns = (slot || showSlotPaste) ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
+              {slot && (
+                <>
+                  <button
+                    title="Tier up" disabled={!canUp}
+                    onClick={e => { e.stopPropagation(); onTierChange(slotIdx, 1); }}
+                    style={{ ...slotBtnStyle(), color: canUp ? 'var(--text)' : 'var(--muted)', cursor: canUp ? 'pointer' : 'default' }}
+                  >▲</button>
+                  <button
+                    title="Tier down" disabled={!canDown}
+                    onClick={e => { e.stopPropagation(); onTierChange(slotIdx, -1); }}
+                    style={{ ...slotBtnStyle(), color: canDown ? 'var(--text)' : 'var(--muted)', cursor: canDown ? 'pointer' : 'default' }}
+                  >▼</button>
+                  <button
+                    title="Remove"
+                    onClick={e => { e.stopPropagation(); onRemoveSlot(slotIdx); }}
+                    style={slotBtnStyle()}
+                  >✕</button>
+                  <button
+                    title="Copy this slot"
+                    onClick={e => { e.stopPropagation(); onCopySlot(slotIdx); }}
+                    style={slotBtnStyle()}
+                  >📋</button>
+                </>
+              )}
+              {showSlotPaste && (
+                <button
+                  title={slotClipboard ? `Paste ${featherDisplayName(slotClipboard.feather)} T${slotClipboard.tier}` : 'Paste slot'}
+                  onClick={e => { e.stopPropagation(); onPasteSlot(slotIdx); }}
+                  style={slotBtnStyle(true)}
+                >⬇</button>
+              )}
+            </div>
+          ) : null;
+
+          const row = (
+            <div key={slotIdx} style={{ display: 'flex', alignItems: 'stretch', gap: 4 }}>
+              {slotButton}
+              {actionBtns}
+            </div>
+          );
+
           return slot ? (
             <WithTooltip key={slotIdx} tooltip={<FeatherTooltipContent feather={slot.feather} tier={slot.tier} />}>
-              {slotButton}
+              {row}
             </WithTooltip>
-          ) : slotButton;
+          ) : row;
         })}
       </div>
 
