@@ -1,15 +1,39 @@
 import type { CSSProperties } from 'react';
+import type { OptimizerMode } from '../domain/types';
 
 interface Props {
   atkPct: number;
   pvp: boolean;
+  mode: OptimizerMode;
   onAtkPctChange: (v: number) => void;
   onPvpChange: (v: boolean) => void;
+  onModeChange: (m: OptimizerMode) => void;
   onOptimize: () => void;
   loading: boolean;
 }
 
-export function OptimizationControls({ atkPct, pvp, onAtkPctChange, onPvpChange, onOptimize, loading }: Props) {
+const MODES: { value: OptimizerMode; label: string; speed: string; desc: string }[] = [
+  {
+    value: 'greedy',
+    label: 'Greedy',
+    speed: 'Fastest',
+    desc: 'Joint ILP at tier 1 picks feather identities, then a greedy pass upgrades tiers. Fast and practical.',
+  },
+  {
+    value: 'tier-enum',
+    label: 'Tier Enumeration',
+    speed: 'Fast',
+    desc: 'Solves one joint ILP per (attack minTier, defense minTier) pair. Globally optimal within the enumeration (~50–100 MIPs). More thorough than greedy.',
+  },
+  {
+    value: 'joint-mip',
+    label: 'Joint MIP',
+    speed: 'Slow',
+    desc: 'Single large ILP with linearised set-bonus via McCormick constraints (~3 000 binary variables). Reference formulation — may be slow or time out in-browser.',
+  },
+];
+
+export function OptimizationControls({ atkPct, pvp, mode, onAtkPctChange, onPvpChange, onModeChange, onOptimize, loading }: Props) {
   const defPct = 100 - atkPct;
 
   function sliderLabel() {
@@ -75,6 +99,51 @@ export function OptimizationControls({ atkPct, pvp, onAtkPctChange, onPvpChange,
         <p style={{ color: 'var(--muted)', fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
           {sliderDesc()}
         </p>
+      </div>
+
+      <div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
+          Optimizer
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {MODES.map(m => (
+            <label
+              key={m.value}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer',
+                padding: '8px 10px', borderRadius: 6, border: '1px solid',
+                borderColor: mode === m.value ? 'var(--accent)' : 'var(--border)',
+                background: mode === m.value ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)',
+                transition: 'border-color 0.12s, background 0.12s',
+              }}
+            >
+              <input
+                type="radio"
+                name="optimizer-mode"
+                value={m.value}
+                checked={mode === m.value}
+                onChange={() => onModeChange(m.value)}
+                style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
+              />
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{m.label}</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase',
+                    padding: '1px 5px', borderRadius: 3,
+                    background: m.speed === 'Fastest' ? '#16a34a' : m.speed === 'Fast' ? '#ca8a04' : '#dc2626',
+                    color: '#fff',
+                  }}>
+                    {m.speed}
+                  </span>
+                </div>
+                <p style={{ color: 'var(--muted)', fontSize: 11, lineHeight: 1.4, margin: 0 }}>
+                  {m.desc}
+                </p>
+              </div>
+            </label>
+          ))}
+        </div>
       </div>
 
       <button

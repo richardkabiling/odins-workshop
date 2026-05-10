@@ -285,3 +285,27 @@ describe('PRESETS', () => {
     expect(() => applyPreset('Unknown' as any, false)).toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// F. solveTierEnum — mock worker integration
+// ---------------------------------------------------------------------------
+
+describe('solveTierEnum (with mock workers)', () => {
+  it('returns null when all scenarios are pruned (empty pool)', async () => {
+    const { solveTierEnum } = await import('../src/solver/tierEnum');
+    const weights = weightsFromRanking(DEFAULT_RANKING);
+    const { computeNormFactors } = await import('../src/solver/normFactors');
+    const { feathers } = await import('../src/data/feathers.generated');
+    const normA = computeNormFactors(feathers, 'attack');
+    const normD = computeNormFactors(feathers, 'defense');
+
+    const result = await solveTierEnum(
+      { STDN: 0, LD: 0, DN: 0, ST: 0, Purple: 0 },
+      weights, normA, normD,
+      {},
+      // Mock worker factory — should not be called since feasibility pruning removes all
+      () => { throw new Error('Worker should not be spawned'); },
+    );
+    expect(result).toBeNull();
+  });
+});
