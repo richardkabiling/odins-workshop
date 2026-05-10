@@ -1,0 +1,99 @@
+<h2>What should the OG / social preview image show?</h2>
+<p class="subtitle">1200×630px card shown when the link is shared on Discord, Twitter, etc.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="brand-only" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <!-- OG mockup: brand only -->
+      <div style="background:linear-gradient(135deg,#e8eeff 0%,#f4f6ff 100%);padding:0;border-radius:6px 6px 0 0;overflow:hidden">
+        <div style="aspect-ratio:1200/630;max-height:160px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;padding:20px;border:2px solid #dde3ff;border-radius:6px 6px 0 0;position:relative">
+          <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#1a2472,#4466dd,#1a2472)"></div>
+          <svg width="52" height="52" viewBox="0 0 64 64" style="margin-bottom:4px">
+            <circle cx="32" cy="32" r="30" fill="#1a2472" stroke="#ffd700" stroke-width="2"/>
+            <line x1="32" y1="8" x2="32" y2="56" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/>
+            <line x1="8" y1="32" x2="56" y2="32" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/>
+            <line x1="14" y1="14" x2="50" y2="50" stroke="#ffd700" stroke-width="1" opacity="0.3"/>
+            <line x1="50" y1="14" x2="14" y2="50" stroke="#ffd700" stroke-width="1" opacity="0.3"/>
+            <circle cx="32" cy="32" r="12" fill="none" stroke="#ffd700" stroke-width="1.5" opacity="0.6"/>
+            <circle cx="32" cy="32" r="4" fill="#ffd700"/>
+          </svg>
+          <div style="text-align:center">
+            <div style="color:#1a2472;font-size:18px;font-weight:800;letter-spacing:0.5px">Odin's Workshop</div>
+            <div style="color:#555;font-size:11px;margin-top:3px">Community Tools for Ragnarok Origin Classic</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Brand card only</h3>
+      <p>Logo + title + subtitle on a clean light background. Simple, works for all future tools too.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="valkyrie-flanked" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <!-- OG mockup: flanked by ATK/DEF valkyries (represented as placeholder silhouettes) -->
+      <div style="background:linear-gradient(135deg,#0d1540 0%,#1a2472 50%,#0d1540 100%);padding:0;border-radius:6px 6px 0 0;overflow:hidden">
+        <div style="aspect-ratio:1200/630;max-height:160px;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-radius:6px 6px 0 0;position:relative">
+          <!-- Left silhouette suggestion -->
+          <div style="width:60px;height:100%;display:flex;align-items:flex-end;justify-content:center;opacity:0.4">
+            <div style="width:32px;background:linear-gradient(to top,#88aaff,transparent);border-radius:4px 4px 0 0;height:100px"></div>
+          </div>
+          <!-- Centre brand -->
+          <div style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px">
+            <svg width="44" height="44" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="30" fill="#1a2472" stroke="#ffd700" stroke-width="2"/>
+              <line x1="32" y1="8" x2="32" y2="56" stroke="#ffd700" stroke-width="1.5" opacity="0.6"/>
+              <line x1="8" y1="32" x2="56" y2="32" stroke="#ffd700" stroke-width="1.5" opacity="0.6"/>
+              <circle cx="32" cy="32" r="4" fill="#ffd700"/>
+            </svg>
+            <div style="color:#fff;font-size:16px;font-weight:800;letter-spacing:0.5px">Odin's Workshop</div>
+            <div style="color:#ffd700;font-size:10px;letter-spacing:1px;opacity:0.85">RAGNAROK ORIGIN CLASSIC</div>
+          </div>
+          <!-- Right silhouette suggestion -->
+          <div style="width:60px;height:100%;display:flex;align-items:flex-end;justify-content:center;opacity:0.4">
+            <div style="width:32px;background:linear-gradient(to top,#ffcc44,transparent);border-radius:4px 4px 0 0;height:90px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Valkyrie art flanking the brand (dark)</h3>
+      <p>ATK Valkyrie (silver) on the left, DEF Valkyrie (gold) on the right, brand centred. Visually striking on Discord.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="valkyrie-light" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:linear-gradient(135deg,#e8eeff 0%,#ffffff 50%,#fff8e8 100%);padding:0;border-radius:6px 6px 0 0;overflow:hidden">
+        <div style="aspect-ratio:1200/630;max-height:160px;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-radius:6px 6px 0 0;border:2px solid #dde3ff">
+          <!-- Left silhouette (blue tint) -->
+          <div style="width:55px;height:100%;display:flex;align-items:flex-end;justify-content:center;opacity:0.35">
+            <div style="width:28px;background:linear-gradient(to top,#1a2472,transparent);border-radius:4px 4px 0 0;height:90px"></div>
+          </div>
+          <!-- Centre brand -->
+          <div style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px">
+            <svg width="40" height="40" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="30" fill="#1a2472" stroke="#ffd700" stroke-width="2"/>
+              <line x1="32" y1="8" x2="32" y2="56" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/>
+              <line x1="8" y1="32" x2="56" y2="32" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/>
+              <circle cx="32" cy="32" r="4" fill="#ffd700"/>
+            </svg>
+            <div style="color:#1a2472;font-size:16px;font-weight:800">Odin's Workshop</div>
+            <div style="color:#888;font-size:10px;letter-spacing:0.5px">Community Tools for Ragnarok Origin Classic</div>
+          </div>
+          <!-- Right silhouette (gold tint) -->
+          <div style="width:55px;height:100%;display:flex;align-items:flex-end;justify-content:center;opacity:0.35">
+            <div style="width:28px;background:linear-gradient(to top,#c8901a,transparent);border-radius:4px 4px 0 0;height:80px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Valkyrie art flanking the brand (light)</h3>
+      <p>Same flanked layout but on a light background matching the header style. Consistent with the overall app aesthetic.</p>
+    </div>
+  </div>
+
+</div>

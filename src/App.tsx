@@ -6,21 +6,28 @@ import { InventoryForm } from './ui/InventoryForm';
 import { StatRankerControls } from './ui/StatRankerControls';
 import { ResultsView } from './ui/ResultsView';
 import { SimulatorView } from './ui/SimulatorView';
-import { encodeUrlState, decodeUrlState, encodeSimState, decodeSimState } from './lib/urlState';
+import { CompareView } from './ui/CompareView';
+import { encodeUrlState, decodeUrlState, encodeSimState, decodeSimState, encodeCompareState, decodeCompareState } from './lib/urlState';
+import type { CompareSetup } from './lib/urlState';
 import type { SimStatue } from './ui/SimulatorView';
 import { makeEmptyStatues } from './ui/SimulatorView';
+import type { Clipboard } from './ui/clipboard';
+import { ClipboardWidget } from './ui/clipboard';
 
 const DEFAULT_INVENTORY: Inventory = { perFeather: {} };
 
 export default function App() {
   // Bootstrap from URL on first render
   const initialParams = new URLSearchParams(window.location.search);
-  const initialTab = initialParams.get('tab') === 'optimize' ? 'optimize' : 'simulate';
+  const rawTab = initialParams.get('tab');
+  const initialTab: 'optimize' | 'simulate' | 'compare' =
+    rawTab === 'optimize' ? 'optimize' : rawTab === 'compare' ? 'compare' : 'simulate';
   const initialUrl = decodeUrlState(window.location.search);
   const initialSimUrl = decodeSimState(window.location.search);
+  const initialCmpUrl = decodeCompareState(window.location.search);
   const initialRanking = initialUrl?.ranking ?? DEFAULT_RANKING;
 
-  const [tab, setTab] = useState<'optimize' | 'simulate'>(initialTab);
+  const [tab, setTab] = useState<'optimize' | 'simulate' | 'compare'>(initialTab);
 
   // Optimizer state
   const [inventory, setInventory] = useState<Inventory>(initialUrl?.inventory ?? DEFAULT_INVENTORY);
@@ -42,6 +49,17 @@ export default function App() {
   );
   const [defenseStatues, setDefenseStatues] = useState<SimStatue[]>(
     (initialSimUrl?.defense as SimStatue[] | undefined) ?? makeEmptyStatues(),
+  );
+
+  // Clipboard (shared across Simulate + Compare tabs)
+  const [clipboard, setClipboard] = useState<Clipboard | null>(null);
+
+  // Compare state
+  const [compareSetups, setCompareSetups] = useState<CompareSetup[]>(
+    initialCmpUrl?.setups ?? [
+      makeEmptySetup('Setup A'),
+      makeEmptySetup('Setup B'),
+    ],
   );
 
   // ── URL helpers ──────────────────────────────────────────────────────────
@@ -155,10 +173,22 @@ export default function App() {
     replaceSimUrl(simInventory, attackStatues, next);
   }
 
-  function handleTabChange(newTab: 'optimize' | 'simulate') {
+  function replaceCompareUrl(setups: CompareSetup[]) {
+    const qs = encodeCompareState({ setups: setups as never });
+    window.history.replaceState({}, '', `?${qs}`);
+  }
+
+  function handleCompareSetupsChange(next: CompareSetup[]) {
+    setCompareSetups(next);
+    replaceCompareUrl(next);
+  }
+
+  function handleTabChange(newTab: 'optimize' | 'simulate' | 'compare') {
     setTab(newTab);
     if (newTab === 'optimize') {
       window.history.pushState({}, '', `?tab=optimize`);
+    } else if (newTab === 'compare') {
+      replaceCompareUrl(compareSetups);
     } else {
       replaceSimUrl(simInventory, attackStatues, defenseStatues);
     }
@@ -173,7 +203,7 @@ export default function App() {
 
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 2, borderBottom: '2px solid var(--border)', marginBottom: 24 }}>
-        {(['simulate', 'optimize'] as const).map(t => (
+        {(['simulate', 'compare', 'optimize'] as const).map(t => (
           <button
             key={t}
             onClick={() => handleTabChange(t)}
@@ -192,7 +222,7 @@ export default function App() {
               transition: 'color 0.12s',
             }}
           >
-            {t === 'optimize' ? 'Optimize Feathers' : 'Simulate Feathers'}
+            {t === 'optimize' ? 'Optimize Feathers' : t === 'simulate' ? 'Simulate Feathers' : 'Compare Feathers'}
           </button>
         ))}
       </div>
@@ -241,9 +271,30 @@ export default function App() {
           defenseStatues={defenseStatues}
           onAttackChange={handleAttackChange}
           onDefenseChange={handleDefenseChange}
+          clipboard={clipboard}
+          setClipboard={setClipboard}
         />
+      )}
+
+      {/* Compare tab */}
+      {tab === 'compare' && (
+        <CompareView
+          setups={compareSetups}
+          onSetupsChange={handleCompareSetupsChange}
+          clipboard={clipboard}
+          setClipboard={setClipboard}
+        />
+      )}
+
+      {/* Shared floating clipboard widget */}
+      {(tab === 'simulate' || tab === 'compare') && (
+        <ClipboardWidget clipboard={clipboard} setClipboard={setClipboard} />
       )}
     </div>
   );
+}
+
+function makeEmptySetup(name: string): import('./lib/urlState').CompareSetup {
+  return { name, attack: makeEmptyStatues() as never, defense: makeEmptyStatues() as never };
 }
 

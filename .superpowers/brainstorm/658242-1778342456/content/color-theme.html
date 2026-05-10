@@ -1,0 +1,83 @@
+<h2>Color theme for the app UI</h2>
+<p class="subtitle">How far should the ROOC palette extend beyond the header?</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="navy-full" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <!-- Full navy theme preview -->
+      <div style="font-family:system-ui;font-size:12px;">
+        <!-- Header -->
+        <div style="background:#fff;border-bottom:2px solid #dde3ff;padding:10px 14px;display:flex;align-items:center;gap:10px">
+          <svg width="28" height="28" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#1a2472" stroke="#ffd700" stroke-width="2"/><line x1="32" y1="8" x2="32" y2="56" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/><line x1="8" y1="32" x2="56" y2="32" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/><circle cx="32" cy="32" r="4" fill="#ffd700"/></svg>
+          <div><div style="color:#1a2472;font-weight:800;font-size:13px">Odin's Workshop</div><div style="color:#888;font-size:10px">Community Tools for Ragnarok Origin Classic</div></div>
+        </div>
+        <!-- Tabs -->
+        <div style="background:#f8f9ff;border-bottom:2px solid #dde3ff;padding:0 14px;display:flex;gap:0">
+          <div style="color:#1a2472;border-bottom:2px solid #1a2472;padding:6px 12px;font-weight:700;font-size:11px;margin-bottom:-2px">Simulate Feathers</div>
+          <div style="color:#888;padding:6px 12px;font-size:11px">Optimize Feathers</div>
+        </div>
+        <!-- Content -->
+        <div style="background:#f4f6ff;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+          <div style="background:#fff;border:1px solid #d0d8f0;border-radius:6px;padding:10px">
+            <div style="color:#18182a;font-weight:600;font-size:11px;margin-bottom:6px">Feather Inventory</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <div style="border:1px solid #d0d8f0;border-radius:3px;padding:3px 8px;font-size:11px;color:#333;background:#fff">5</div>
+              <div style="color:#555;font-size:11px">Faith · Orange</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button style="background:#1a2472;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:11px;font-weight:700">Optimize</button>
+            <a style="color:#1a2472;font-size:11px;align-self:center;text-decoration:underline">Clear</a>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <span style="background:#f5e6d0;color:#8a4a00;border:1px solid #d4a05088;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:600">orange</span>
+            <span style="background:#ede0f8;color:#6a009a;border:1px solid #b060d888;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:600">purple</span>
+            <span style="background:#fce8e8;color:#a01010;border:1px solid #e0808088;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:600">atk</span>
+            <span style="background:#e8e8fc;color:#1010a0;border:1px solid #8080e088;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:600">def</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Full ROOC navy theme</h3>
+      <p>Replace purple accent (#5b4fcf) with navy (#1a2472) everywhere: buttons, active tabs, links, focus rings. Slight blue tint to the page background. Cohesive with the header.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="navy-header-purple-body" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:system-ui;font-size:12px;">
+        <!-- Header navy -->
+        <div style="background:#fff;border-bottom:2px solid #dde3ff;padding:10px 14px;display:flex;align-items:center;gap:10px">
+          <svg width="28" height="28" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#1a2472" stroke="#ffd700" stroke-width="2"/><line x1="32" y1="8" x2="32" y2="56" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/><line x1="8" y1="32" x2="56" y2="32" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/><circle cx="32" cy="32" r="4" fill="#ffd700"/></svg>
+          <div><div style="color:#1a2472;font-weight:800;font-size:13px">Odin's Workshop</div><div style="color:#888;font-size:10px">Community Tools for Ragnarok Origin Classic</div></div>
+        </div>
+        <!-- Tabs: purple accent -->
+        <div style="background:#f4f4f8;border-bottom:2px solid #d0d0de;padding:0 14px;display:flex;gap:0">
+          <div style="color:#5b4fcf;border-bottom:2px solid #5b4fcf;padding:6px 12px;font-weight:700;font-size:11px;margin-bottom:-2px">Simulate Feathers</div>
+          <div style="color:#888;padding:6px 12px;font-size:11px">Optimize Feathers</div>
+        </div>
+        <!-- Content: existing palette -->
+        <div style="background:#f4f4f8;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+          <div style="background:#fff;border:1px solid #d0d0de;border-radius:6px;padding:10px">
+            <div style="color:#18182a;font-weight:600;font-size:11px;margin-bottom:6px">Feather Inventory</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <div style="border:1px solid #d0d0de;border-radius:3px;padding:3px 8px;font-size:11px;color:#333;background:#fff">5</div>
+              <div style="color:#555;font-size:11px">Faith · Orange</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button style="background:#5b4fcf;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:11px;font-weight:700">Optimize</button>
+            <a style="color:#5b4fcf;font-size:11px;align-self:center;text-decoration:underline">Clear</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Navy header only, keep purple body</h3>
+      <p>Header and favicon use ROOC navy/gold; the rest of the app keeps its existing purple accent. Less cohesive but zero risk of unexpected visual regressions.</p>
+    </div>
+  </div>
+
+</div>

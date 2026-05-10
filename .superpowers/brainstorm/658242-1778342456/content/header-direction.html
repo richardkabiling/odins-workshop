@@ -1,0 +1,90 @@
+<h2>How should the app header look?</h2>
+<p class="subtitle">These mockups show the branding approach — click to select your preferred direction</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="logo-only" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <!-- Header: dark navy, logo + text only -->
+      <div style="background:linear-gradient(135deg,#0d1540 0%,#1a2472 100%);padding:18px 24px;display:flex;align-items:center;gap:14px;border-radius:6px 6px 0 0">
+        <div style="width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#3a4ecc,#0d1540);border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <path d="M11 2 L13 8 L11 7 L9 8 Z" fill="#ffd700"/>
+            <path d="M11 20 L13 14 L11 15 L9 14 Z" fill="#ffd700"/>
+            <path d="M2 11 L8 9 L7 11 L8 13 Z" fill="#ffd700"/>
+            <path d="M20 11 L14 9 L15 11 L14 13 Z" fill="#ffd700"/>
+            <circle cx="11" cy="11" r="3" fill="#ffd700" opacity="0.9"/>
+          </svg>
+        </div>
+        <div>
+          <div style="color:#fff;font-size:16px;font-weight:700;letter-spacing:0.5px">Odin's Workshop</div>
+          <div style="color:#aab8ff;font-size:11px;margin-top:1px">Community Tools for Ragnarok Origin Classic</div>
+        </div>
+      </div>
+      <div style="background:#f0f2ff;padding:10px 24px;display:flex;gap:16px">
+        <div style="background:#1a2472;color:#fff;padding:5px 14px;border-radius:4px;font-size:12px;font-weight:600">Simulate</div>
+        <div style="color:#666;padding:5px 14px;font-size:12px">Optimize</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Logo + text, dark navy header</h3>
+      <p>Clean brand bar. Draws from the ROOC emblem palette. No character art, works at all sizes.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="light-game" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <!-- Header: light/white, matches in-game UI feel -->
+      <div style="background:#fff;border-bottom:2px solid #dde3ff;padding:16px 24px;display:flex;align-items:center;gap:14px;border-radius:6px 6px 0 0">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='19' fill='%231a2472' stroke='%23ffd700' stroke-width='1.5'/%3E%3Ctext x='20' y='26' text-anchor='middle' fill='%23ffd700' font-size='18' font-weight='900' font-family='serif'%3EW%3C/text%3E%3C/svg%3E" width="40" height="40" style="border-radius:50%">
+        <div>
+          <div style="color:#1a2472;font-size:16px;font-weight:800;letter-spacing:0.3px">Odin's Workshop</div>
+          <div style="color:#888;font-size:11px;margin-top:1px">Ragnarok Origin Classic · Feather Optimizer</div>
+        </div>
+      </div>
+      <div style="background:#f8f9ff;padding:10px 24px;display:flex;gap:2px;border-bottom:1px solid #dde3ff">
+        <div style="background:none;color:#1a2472;border-bottom:2px solid #1a2472;padding:5px 14px;font-size:12px;font-weight:700;margin-bottom:-1px">Simulate</div>
+        <div style="color:#888;padding:5px 14px;font-size:12px">Optimize</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Light header, matches in-game UI feel</h3>
+      <p>White background like the in-game Valkyrie Feather screen. Feels familiar to ROOC players.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="hero-banner" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <!-- Header: dark with Valkyrie silhouette suggestion -->
+      <div style="background:linear-gradient(135deg,#0d1540 0%,#1e2d7a 60%,#1a4060 100%);padding:20px 24px;position:relative;overflow:hidden;border-radius:6px 6px 0 0;min-height:80px">
+        <!-- Decorative feather strokes -->
+        <div style="position:absolute;right:0;top:0;bottom:0;width:160px;opacity:0.15;background:linear-gradient(90deg,transparent,#88aaff)"></div>
+        <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:48px;opacity:0.08;color:#fff;font-weight:900;letter-spacing:-2px">RA</div>
+        <div style="display:flex;align-items:center;gap:14px;position:relative">
+          <div style="width:48px;height:48px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#3a4ecc,#0d1540);border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 12px rgba(255,215,0,0.3)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3 L14 9 L12 8 L10 9 Z" fill="#ffd700"/>
+              <path d="M12 21 L14 15 L12 16 L10 15 Z" fill="#ffd700"/>
+              <path d="M3 12 L9 10 L8 12 L9 14 Z" fill="#ffd700"/>
+              <path d="M21 12 L15 10 L16 12 L15 14 Z" fill="#ffd700"/>
+              <circle cx="12" cy="12" r="3.5" fill="#ffd700" opacity="0.9"/>
+            </svg>
+          </div>
+          <div>
+            <div style="color:#fff;font-size:18px;font-weight:800;letter-spacing:0.5px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Odin's Workshop</div>
+            <div style="color:#ffd700;font-size:11px;margin-top:2px;opacity:0.85;font-weight:500;letter-spacing:0.5px">RAGNAROK ORIGIN CLASSIC · FEATHER OPTIMIZER</div>
+          </div>
+        </div>
+      </div>
+      <div style="background:#0d1540;padding:8px 24px;display:flex;gap:2px;border-bottom:1px solid #2a3580">
+        <div style="color:#ffd700;border-bottom:2px solid #ffd700;padding:5px 14px;font-size:12px;font-weight:700;margin-bottom:-1px">Simulate</div>
+        <div style="color:#8899cc;padding:5px 14px;font-size:12px">Optimize</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Dark cinematic header with game branding</h3>
+      <p>Full dark navy with gold accents, subtle decorative elements. Most "ROOC" feeling — leans into the logo's navy/gold aesthetic.</p>
+    </div>
+  </div>
+
+</div>

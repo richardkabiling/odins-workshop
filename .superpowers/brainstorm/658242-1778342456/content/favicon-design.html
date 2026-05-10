@@ -1,0 +1,86 @@
+<h2>What should the favicon look like?</h2>
+<p class="subtitle">The small icon shown in browser tabs — needs to read clearly at 16×16 and 32×32 px</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="emblem" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;padding:24px;gap:20px;background:#f8f9fc">
+      <!-- ROOC-style circular emblem -->
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="30" fill="#1a2472" stroke="#ffd700" stroke-width="2"/>
+        <line x1="32" y1="8" x2="32" y2="56" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/>
+        <line x1="8" y1="32" x2="56" y2="32" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/>
+        <line x1="14" y1="14" x2="50" y2="50" stroke="#ffd700" stroke-width="1" opacity="0.3"/>
+        <line x1="50" y1="14" x2="14" y2="50" stroke="#ffd700" stroke-width="1" opacity="0.3"/>
+        <circle cx="32" cy="32" r="12" fill="none" stroke="#ffd700" stroke-width="1.5" opacity="0.6"/>
+        <circle cx="32" cy="32" r="4" fill="#ffd700"/>
+      </svg>
+      <!-- Same at 32px equivalent -->
+      <svg width="32" height="32" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="30" fill="#1a2472" stroke="#ffd700" stroke-width="2"/>
+        <line x1="32" y1="8" x2="32" y2="56" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/>
+        <line x1="8" y1="32" x2="56" y2="32" stroke="#ffd700" stroke-width="1.5" opacity="0.5"/>
+        <circle cx="32" cy="32" r="4" fill="#ffd700"/>
+      </svg>
+      <svg width="16" height="16" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="30" fill="#1a2472" stroke="#ffd700" stroke-width="3"/>
+        <circle cx="32" cy="32" r="5" fill="#ffd700"/>
+      </svg>
+      <span style="font-size:11px;color:#888">64px · 32px · 16px</span>
+    </div>
+    <div class="card-body">
+      <h3>A — ROOC circular emblem</h3>
+      <p>Inspired by the compass/seal in the ROOC logo. Reads as a blue circle with gold centre at small sizes.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="workshop-w" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;padding:24px;gap:20px;background:#f8f9fc">
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <rect width="64" height="64" rx="10" fill="#1a2472"/>
+        <text x="32" y="46" text-anchor="middle" fill="#ffd700" font-size="38" font-weight="900" font-family="Georgia,serif">W</text>
+      </svg>
+      <svg width="32" height="32" viewBox="0 0 64 64">
+        <rect width="64" height="64" rx="10" fill="#1a2472"/>
+        <text x="32" y="46" text-anchor="middle" fill="#ffd700" font-size="38" font-weight="900" font-family="Georgia,serif">W</text>
+      </svg>
+      <svg width="16" height="16" viewBox="0 0 64 64">
+        <rect width="64" height="64" rx="10" fill="#1a2472"/>
+        <text x="32" y="46" text-anchor="middle" fill="#ffd700" font-size="38" font-weight="900" font-family="Georgia,serif">W</text>
+      </svg>
+      <span style="font-size:11px;color:#888">64px · 32px · 16px</span>
+    </div>
+    <div class="card-body">
+      <h3>B — "W" for Workshop</h3>
+      <p>Simple, distinctive. Navy square with rounded corners + gold serif W. Instantly identifiable in any tab bar.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="feather" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;padding:24px;gap:20px;background:#f8f9fc">
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="30" fill="#e8eeff" stroke="#1a2472" stroke-width="2"/>
+        <!-- Feather shape -->
+        <path d="M32 10 C20 22 18 36 24 50 C28 44 34 38 32 10Z" fill="#1a2472" opacity="0.85"/>
+        <path d="M32 10 C44 22 46 36 40 50 C36 44 30 38 32 10Z" fill="#1a2472" opacity="0.5"/>
+        <line x1="32" y1="14" x2="32" y2="50" stroke="#ffd700" stroke-width="1.5"/>
+      </svg>
+      <svg width="32" height="32" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="30" fill="#e8eeff" stroke="#1a2472" stroke-width="2"/>
+        <path d="M32 10 C20 22 18 36 24 50 C28 44 34 38 32 10Z" fill="#1a2472" opacity="0.85"/>
+        <path d="M32 10 C44 22 46 36 40 50 C36 44 30 38 32 10Z" fill="#1a2472" opacity="0.5"/>
+        <line x1="32" y1="14" x2="32" y2="50" stroke="#ffd700" stroke-width="1.5"/>
+      </svg>
+      <svg width="16" height="16" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="30" fill="#e8eeff" stroke="#1a2472" stroke-width="2"/>
+        <path d="M32 10 C20 22 18 36 24 50 C28 44 34 38 32 10Z" fill="#1a2472" opacity="0.85"/>
+      </svg>
+      <span style="font-size:11px;color:#888">64px · 32px · 16px</span>
+    </div>
+    <div class="card-body">
+      <h3>C — Feather icon</h3>
+      <p>A stylized feather on a light circle. Directly references the app's current subject matter.</p>
+    </div>
+  </div>
+
+</div>

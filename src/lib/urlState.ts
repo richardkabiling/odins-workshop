@@ -167,3 +167,66 @@ export function decodeSimState(search: string): SimUrlState | null {
     return null;
   }
 }
+
+// ─── Compare URL State ────────────────────────────────────────────────────────
+
+export interface CompareSetup {
+  name: string;
+  attack: SimStatueData[];   // 5 statues
+  defense: SimStatueData[];  // 5 statues
+}
+
+export interface CompareUrlState {
+  setups: CompareSetup[];  // 2–4 setups
+}
+
+export function encodeCompareState(state: CompareUrlState): string {
+  const encSlot = (s: SimSlotData) => s ? [s.feather, s.tier] : null;
+  const payload = {
+    setups: state.setups.map(setup => ({
+      n: setup.name,
+      atk: setup.attack.map(statue => statue.map(encSlot)),
+      def: setup.defense.map(statue => statue.map(encSlot)),
+    })),
+  };
+  const params = new URLSearchParams();
+  params.set('tab', 'compare');
+  params.set('cmp', toBase64Url(JSON.stringify(payload)));
+  return params.toString();
+}
+
+export function decodeCompareState(search: string): CompareUrlState | null {
+  const params = new URLSearchParams(search);
+  if (params.get('tab') !== 'compare') return null;
+  const cmp = params.get('cmp');
+  if (!cmp) return null;
+  try {
+    const payload = JSON.parse(fromBase64Url(cmp));
+    const decSlot = (s: unknown): SimSlotData => {
+      if (!Array.isArray(s) || s.length !== 2 || typeof s[0] !== 'string') return null;
+      return { feather: s[0] as FeatherId, tier: Number(s[1]) };
+    };
+    const decStatue = (arr: unknown): SimStatueData => {
+      const empty: SimSlotData[] = Array(5).fill(null);
+      if (!Array.isArray(arr)) return empty;
+      return [...arr.slice(0, 5).map(decSlot), ...empty].slice(0, 5);
+    };
+    const empty5 = makeEmptySimStatues();
+    if (!Array.isArray(payload.setups)) return null;
+    const setups: CompareSetup[] = (payload.setups as unknown[]).slice(0, 4).map((raw: unknown) => {
+      const r = raw as Record<string, unknown>;
+      return {
+        name: typeof r.n === 'string' ? r.n : 'Setup',
+        attack: Array.isArray(r.atk)
+          ? [...(r.atk as unknown[]).slice(0, 5).map(decStatue), ...empty5].slice(0, 5)
+          : empty5,
+        defense: Array.isArray(r.def)
+          ? [...(r.def as unknown[]).slice(0, 5).map(decStatue), ...empty5].slice(0, 5)
+          : empty5,
+      };
+    });
+    return { setups };
+  } catch {
+    return null;
+  }
+}
