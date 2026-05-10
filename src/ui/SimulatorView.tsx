@@ -8,6 +8,11 @@ import { featherImages } from './featherImages';
 import { RarityDot, TypeChip } from './FeatherBadges';
 import { FeatherTooltipContent, TierTooltipContent, WithTooltip } from './FeatherTooltip';
 import { InventoryForm } from './InventoryForm';
+import {
+  JsonModal, type JsonModalState,
+  serializeStatue, serializeKind, serializeAll,
+  parseStatue, parseKind, parseAll,
+} from './jsonImportExport';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -82,6 +87,7 @@ export function SimulatorView({
   const [pickerFeather, setPickerFeather] = useState<FeatherId | null>(null);
   const [pickerTier, setPickerTier] = useState<number>(1);
   const [ignoreLimits, setIgnoreLimits] = useState(false);
+  const [jsonModal, setJsonModal] = useState<JsonModalState | null>(null);
 
   // ── Statue mutation helpers ─────────────────────────────────────────────
 
@@ -337,7 +343,27 @@ export function SimulatorView({
       })()}
 
       {/* ── Clipboard ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+        <button
+          onClick={() => setJsonModal({
+            title: 'All Statues (Attack + Defense)',
+            exportData: serializeAll(attackStatues, defenseStatues),
+            parseLevel: 'all',
+            onApply: parsed => {
+              const { attack, defense } = parsed as { attack: SimStatue[]; defense: SimStatue[] };
+              onAttackChange(attack);
+              onDefenseChange(defense);
+            },
+          })}
+          style={{
+            fontSize: 12, padding: '4px 12px', borderRadius: 6,
+            background: 'var(--surface2)', color: 'var(--muted)',
+            border: '1.5px solid var(--border)',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          {'{ }'} JSON
+        </button>
         <button
           onClick={handleCopyAll}
           style={{
@@ -357,6 +383,22 @@ export function SimulatorView({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <h2>Attack Statues</h2>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button
+              onClick={() => setJsonModal({
+                title: 'Attack Statues',
+                exportData: serializeKind(attackStatues),
+                parseLevel: 'kind',
+                onApply: parsed => onAttackChange(parsed as SimStatue[]),
+              })}
+              style={{
+                fontSize: 11, padding: '3px 8px', borderRadius: 5,
+                background: 'var(--surface2)', color: 'var(--muted)',
+                border: '1.5px solid var(--border)',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {'{ }'} JSON
+            </button>
             {clipboard?.level === 'kind' && clipboard.kind === 'attack' && (
               <button
                 onClick={() => handlePasteKind('attack')}
@@ -406,6 +448,12 @@ export function SimulatorView({
               onCopySlot={slotIdx => handleCopySlot('attack', i, slotIdx)}
               onPasteSlot={slotIdx => handlePasteSlot('attack', i, slotIdx)}
               slotClipboard={clipboard?.level === 'slot' ? clipboard.slot : undefined}
+              onJsonStatue={() => setJsonModal({
+                title: `Attack Statue #${i + 1}`,
+                exportData: serializeStatue(statue),
+                parseLevel: 'statue',
+                onApply: parsed => onAttackChange(attackStatues.map((s, j) => j === i ? parsed as SimStatue : s)),
+              })}
             />
           ))}
         </div>
@@ -416,6 +464,22 @@ export function SimulatorView({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <h2>Defense Statues</h2>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button
+              onClick={() => setJsonModal({
+                title: 'Defense Statues',
+                exportData: serializeKind(defenseStatues),
+                parseLevel: 'kind',
+                onApply: parsed => onDefenseChange(parsed as SimStatue[]),
+              })}
+              style={{
+                fontSize: 11, padding: '3px 8px', borderRadius: 5,
+                background: 'var(--surface2)', color: 'var(--muted)',
+                border: '1.5px solid var(--border)',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {'{ }'} JSON
+            </button>
             {clipboard?.level === 'kind' && clipboard.kind === 'defense' && (
               <button
                 onClick={() => handlePasteKind('defense')}
@@ -465,6 +529,12 @@ export function SimulatorView({
               onCopySlot={slotIdx => handleCopySlot('defense', i, slotIdx)}
               onPasteSlot={slotIdx => handlePasteSlot('defense', i, slotIdx)}
               slotClipboard={clipboard?.level === 'slot' ? clipboard.slot : undefined}
+              onJsonStatue={() => setJsonModal({
+                title: `Defense Statue #${i + 1}`,
+                exportData: serializeStatue(statue),
+                parseLevel: 'statue',
+                onApply: parsed => onDefenseChange(defenseStatues.map((s, j) => j === i ? parsed as SimStatue : s)),
+              })}
             />
           ))}
         </div>
@@ -486,6 +556,14 @@ export function SimulatorView({
             })}
           </div>
         </div>
+      )}
+
+      {/* ── JSON Modal ────────────────────────────────────────────────── */}
+      {jsonModal && (
+        <JsonModal
+          state={jsonModal}
+          onClose={() => setJsonModal(null)}
+        />
       )}
 
       {/* ── Feather Picker Modal ─────────────────────────────────────────── */}
@@ -735,6 +813,7 @@ function StatueSimCard({
   isCopySource, showStatuePaste, onCopyStatue, onPasteStatue,
   onTierChange, onRemoveSlot,
   showSlotPaste, onCopySlot, onPasteSlot, slotClipboard,
+  onJsonStatue,
 }: {
   index: number;
   kind: 'attack' | 'defense';
@@ -751,6 +830,7 @@ function StatueSimCard({
   onCopySlot: (slotIdx: number) => void;
   onPasteSlot: (slotIdx: number) => void;
   slotClipboard?: SimSlot;
+  onJsonStatue?: () => void;
 }) {
   const tpl = statueTemplate(statue);
   const bonus = tpl
@@ -815,6 +895,18 @@ function StatueSimCard({
               Paste
             </button>
           )}
+          {onJsonStatue && (
+            <button
+              onClick={onJsonStatue}
+              title="Import / Export JSON"
+              style={{
+                fontSize: 11, padding: '2px 6px', borderRadius: 4,
+                background: 'var(--surface2)', color: 'var(--muted)',
+                border: '1.5px solid var(--border)',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >{'{ }'}</button>
+          )}
           <button
             onClick={onCopyStatue}
             title={isCopySource ? 'Cancel copy' : 'Copy this statue'}
@@ -838,6 +930,9 @@ function StatueSimCard({
           const slotDef = slot ? featherById.get(slot.feather) : null;
           const canUp = slot && !!slotDef?.tiers[slot.tier + 1];
           const canDown = slot && slot.tier > 1 && !!slotDef?.tiers[slot.tier - 1];
+          const clipFeather = slotClipboard?.feather;
+          const featherAlreadyInStatue = clipFeather != null && statue.some(s => s !== null && s.feather === clipFeather);
+          const canPasteSlot = showSlotPaste && (!featherAlreadyInStatue || slot?.feather === clipFeather);
           const slotButton = (
             <button
               key={slotIdx}
@@ -904,7 +999,7 @@ function StatueSimCard({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: 'inherit',
           });
-          const actionBtns = (slot || showSlotPaste) ? (
+          const actionBtns = (slot || canPasteSlot) ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
               {slot && (
                 <>
@@ -930,7 +1025,7 @@ function StatueSimCard({
                   >📋</button>
                 </>
               )}
-              {showSlotPaste && (
+              {canPasteSlot && (
                 <button
                   title={slotClipboard ? `Paste ${featherDisplayName(slotClipboard.feather)} T${slotClipboard.tier}` : 'Paste slot'}
                   onClick={e => { e.stopPropagation(); onPasteSlot(slotIdx); }}

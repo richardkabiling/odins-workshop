@@ -11,6 +11,10 @@ import type { Clipboard } from './clipboard';
 import type { SimSlot, SimStatue } from './SimulatorView';
 import { makeEmptyStatues } from './SimulatorView';
 import type { CompareSetup } from '../lib/urlState';
+import {
+  JsonModal, type JsonModalState,
+  serializeStatue, serializeKind, serializeAll,
+} from './jsonImportExport';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -93,6 +97,7 @@ export function CompareView({ setups, onSetupsChange, onClear, clipboard, setCli
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [jsonModal, setJsonModal] = useState<JsonModalState | null>(null);
 
   function handleShare() {
     setShareOpen(true);
@@ -368,6 +373,32 @@ export function CompareView({ setups, onSetupsChange, onClear, clipboard, setCli
             onPasteSlot={(kind, si, li) => handlePasteSlot(setupIdx, kind, si, li)}
             onTierChange={(kind, si, li, d) => handleTierChange(setupIdx, kind, si, li, d)}
             onRemoveSlot={(kind, si, li) => handleRemoveSlot(setupIdx, kind, si, li)}
+            onJsonAll={() => setJsonModal({
+              title: `${setup.name} — All Statues`,
+              exportData: serializeAll(setup.attack as SimStatue[], setup.defense as SimStatue[]),
+              parseLevel: 'all',
+              onApply: parsed => {
+                const { attack, defense } = parsed as { attack: SimStatue[]; defense: SimStatue[] };
+                updateSetup(setupIdx, { attack, defense });
+              },
+            })}
+            onJsonKind={kind => setJsonModal({
+              title: `${setup.name} — ${kind === 'attack' ? 'Attack' : 'Defense'} Statues`,
+              exportData: serializeKind((kind === 'attack' ? setup.attack : setup.defense) as SimStatue[]),
+              parseLevel: 'kind',
+              onApply: parsed => updateSetup(setupIdx, { [kind]: parsed as SimStatue[] }),
+            })}
+            onJsonStatue={(kind, si) => {
+              const statues = (kind === 'attack' ? setup.attack : setup.defense) as SimStatue[];
+              setJsonModal({
+                title: `${setup.name} — ${kind === 'attack' ? 'Attack' : 'Defense'} #${si + 1}`,
+                exportData: serializeStatue(statues[si]),
+                parseLevel: 'statue',
+                onApply: parsed => updateSetup(setupIdx, {
+                  [kind]: statues.map((s, j) => j === si ? parsed as SimStatue : s),
+                }),
+              });
+            }}
           />
         ))}
       </div>
@@ -422,6 +453,11 @@ export function CompareView({ setups, onSetupsChange, onClear, clipboard, setCli
             </table>
           </div>
         </div>
+      )}
+
+      {/* JSON Modal */}
+      {jsonModal && (
+        <JsonModal state={jsonModal} onClose={() => setJsonModal(null)} />
       )}
 
       {/* Feather Picker Modal */}
@@ -554,6 +590,7 @@ function SetupColumn({
   onCopyAll, onCopyKind, onCopyStatue, onCopySlot,
   onPasteAll, onPasteKind, onPasteStatue, onPasteSlot,
   onTierChange, onRemoveSlot,
+  onJsonAll, onJsonKind, onJsonStatue,
 }: {
   setup: CompareSetup;
   setupIdx: number;
@@ -574,6 +611,9 @@ function SetupColumn({
   onPasteSlot: (kind: 'attack' | 'defense', si: number, li: number) => void;
   onTierChange: (kind: 'attack' | 'defense', si: number, li: number, delta: 1 | -1) => void;
   onRemoveSlot: (kind: 'attack' | 'defense', si: number, li: number) => void;
+  onJsonAll: () => void;
+  onJsonKind: (kind: 'attack' | 'defense') => void;
+  onJsonStatue: (kind: 'attack' | 'defense', si: number) => void;
 }) {
   const [editingName, setEditingName] = useState(false);
 
@@ -599,6 +639,9 @@ function SetupColumn({
             {showKindPaste && clipboard?.level === 'kind' && clipboard.kind === kind && (
               <button onClick={() => onPasteKind(kind)} style={btnStyle(true)}>Paste</button>
             )}
+            <button onClick={() => onJsonKind(kind)} style={btnStyle(false)} title="Import / Export JSON">
+              {'{ }'}
+            </button>
             <button
               onClick={() => onCopyKind(kind)}
               style={btnStyle(isKindCopied)}
@@ -624,6 +667,9 @@ function SetupColumn({
                   {showStatuePaste && (
                     <button onClick={() => onPasteStatue(kind, si)} style={btnStyle(true, true)}>Paste</button>
                   )}
+                  <button onClick={() => onJsonStatue(kind, si)} style={btnStyle(false)} title="Import / Export JSON">
+                    {'{ }'}
+                  </button>
                   <button onClick={() => onCopyStatue(kind, si)} style={btnStyle(isStatueCopied)}>
                     {isStatueCopied ? '✕' : 'Copy'}
                   </button>
@@ -637,6 +683,9 @@ function SetupColumn({
                   const canUp = slot && !!slotDef?.tiers[slot.tier + 1];
                   const canDown = slot && slot.tier > 1 && !!slotDef?.tiers[slot.tier - 1];
                   const isSelected = selectedSlot === li;
+                  const clipFeather = clipboard?.level === 'slot' ? clipboard.slot?.feather : undefined;
+                  const featherAlreadyInStatue = clipFeather != null && statue.some(s => s !== null && s.feather === clipFeather);
+                  const canPasteSlot = showSlotPaste && (!featherAlreadyInStatue || slot?.feather === clipFeather);
 
                   const slotBtn = (
                     <button
@@ -698,7 +747,7 @@ function SetupColumn({
                     fontFamily: 'inherit', flexShrink: 0,
                   });
 
-                  const actions = (slot || showSlotPaste) ? (
+                  const actions = (slot || canPasteSlot) ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
                       {slot && (
                         <>
@@ -708,7 +757,7 @@ function SetupColumn({
                           <button title="Copy this slot" onClick={e => { e.stopPropagation(); onCopySlot(kind, si, li); }} style={slotBtnStyle()}>📋</button>
                         </>
                       )}
-                      {showSlotPaste && (
+                      {canPasteSlot && (
                         <button title="Paste slot" onClick={e => { e.stopPropagation(); onPasteSlot(kind, si, li); }} style={slotBtnStyle(true)}>⬇</button>
                       )}
                     </div>
@@ -764,6 +813,13 @@ function SetupColumn({
           {showPasteAll && (
             <button onClick={onPasteAll} style={btnStyle(true, true, 10)}>Paste All</button>
           )}
+          <button
+            onClick={onJsonAll}
+            title="Import / Export JSON"
+            style={btnStyle(false, false, 10)}
+          >
+            {'{ }'}
+          </button>
           <button
             onClick={onCopyAll}
             title="Copy full setup"
