@@ -566,7 +566,7 @@ function SetupColumn({
               </div>
 
               {/* Slots */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {statue.map((slot, li) => {
                   const slotDef = slot ? featherById.get(slot.feather) : null;
                   const canUp = slot && !!slotDef?.tiers[slot.tier + 1];
@@ -577,63 +577,80 @@ function SetupColumn({
                     <button
                       onClick={() => onSlotClick(kind, si, li)}
                       style={{
-                        flex: 1, display: 'flex', alignItems: 'center', gap: 4,
-                        padding: '3px 5px', borderRadius: 5, cursor: 'pointer',
-                        background: isSelected ? 'rgba(91,79,207,0.15)' : slot ? 'var(--surface)' : 'transparent',
-                        border: isSelected ? '1px solid var(--accent)' : `1px dashed ${slot ? 'transparent' : 'var(--border)'}`,
+                        flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '5px 7px', borderRadius: 6, cursor: 'pointer',
+                        background: isSelected ? 'rgba(91,79,207,0.12)' : slot ? 'var(--surface2)' : 'transparent',
+                        border: isSelected ? '1.5px solid var(--accent)' : `1.5px dashed ${slot ? 'transparent' : 'var(--border)'}`,
                         fontFamily: 'inherit', color: 'var(--text)', textAlign: 'left',
+                        transition: 'background 0.1s',
                       }}
                     >
                       {slot ? (
                         <>
-                          <div style={{ position: 'relative', flexShrink: 0, width: 28, height: 28 }}>
+                          <div style={{ position: 'relative', flexShrink: 0, width: 44, height: 44 }}>
                             {featherImages[slot.feather]
-                              ? <img src={featherImages[slot.feather]} alt={slot.feather} style={{ width: 28, height: 28, objectFit: 'contain' }} />
-                              : <div style={{ width: 28, height: 28, background: 'var(--border)', borderRadius: 3 }} />
+                              ? <img src={featherImages[slot.feather]} alt={slot.feather} style={{ width: 44, height: 44, objectFit: 'contain' }} />
+                              : <div style={{ width: 44, height: 44, background: 'var(--border)', borderRadius: 3 }} />
                             }
-                            <div style={{ position: 'absolute', top: 1, left: 1, background: 'rgba(0,0,0,0.5)', borderRadius: 2, padding: '0 2px', fontSize: 6, fontWeight: 700, color: '#4a9eff', lineHeight: 1.6 }}>
+                            <div style={{
+                              position: 'absolute', top: 2, left: 2,
+                              background: 'rgba(255,255,255,0.25)',
+                              borderRadius: 3, padding: '1px 3px',
+                              fontSize: 9, fontWeight: 700, color: '#4a9eff',
+                              lineHeight: 1.4, backdropFilter: 'blur(2px)',
+                            }}>
                               {ROMAN[slot.tier]}
                             </div>
                           </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 9, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {featherDisplayName(slot.feather)}
+                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              {slotDef ? <RarityDot rarity={slotDef.rarity} /> : null}
+                              <span style={{ fontWeight: 600, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {featherDisplayName(slot.feather)}
+                              </span>
                             </div>
-                            <div style={{ fontSize: 9, color: 'var(--muted)' }}>T{slot.tier}</div>
+                            {slotDef ? <TypeChip type={slotDef.type} /> : null}
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                              <span style={{ background: 'var(--surface2)', borderRadius: 3, padding: '0 4px', fontSize: 10 }}>T{slot.tier}</span>
+                              <span style={{ color: 'var(--muted)', fontSize: 10 }}>
+                                {slotDef?.tiers[slot.tier]?.totalCost ?? 0} T1
+                              </span>
+                            </div>
                           </div>
                         </>
                       ) : (
-                        <span style={{ fontSize: 9, color: 'var(--muted)' }}>+ Add</span>
+                        <span style={{ color: 'var(--muted)', fontSize: 11 }}>+ Add feather</span>
                       )}
                     </button>
                   );
 
-                  const s = (active = false): React.CSSProperties => ({
-                    width: 16, height: 16, border: '1px solid var(--border)',
-                    borderRadius: 3, background: active ? 'var(--accent)' : 'var(--surface)',
+                  const slotBtnStyle = (active = false): React.CSSProperties => ({
+                    width: 22, height: 22, border: '1px solid var(--border)',
+                    borderRadius: 4, background: active ? 'var(--accent)' : 'var(--surface2)',
                     color: active ? '#fff' : 'var(--muted)', cursor: 'pointer',
-                    fontSize: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, lineHeight: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontFamily: 'inherit', flexShrink: 0,
                   });
 
                   const actions = (slot || showSlotPaste) ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
                       {slot && (
                         <>
-                          <button title="Tier up" disabled={!canUp} onClick={e => { e.stopPropagation(); onTierChange(kind, si, li, 1); }} style={{ ...s(), color: canUp ? 'var(--text)' : 'var(--muted)', cursor: canUp ? 'pointer' : 'default' }}>▲</button>
-                          <button title="Tier down" disabled={!canDown} onClick={e => { e.stopPropagation(); onTierChange(kind, si, li, -1); }} style={{ ...s(), color: canDown ? 'var(--text)' : 'var(--muted)', cursor: canDown ? 'pointer' : 'default' }}>▼</button>
-                          <button title="Remove" onClick={e => { e.stopPropagation(); onRemoveSlot(kind, si, li); }} style={s()}>✕</button>
-                          <button title="Copy slot" onClick={e => { e.stopPropagation(); onCopySlot(kind, si, li); }} style={s()}>📋</button>
+                          <button title="Tier up" disabled={!canUp} onClick={e => { e.stopPropagation(); onTierChange(kind, si, li, 1); }} style={{ ...slotBtnStyle(), color: canUp ? 'var(--text)' : 'var(--muted)', cursor: canUp ? 'pointer' : 'default' }}>▲</button>
+                          <button title="Tier down" disabled={!canDown} onClick={e => { e.stopPropagation(); onTierChange(kind, si, li, -1); }} style={{ ...slotBtnStyle(), color: canDown ? 'var(--text)' : 'var(--muted)', cursor: canDown ? 'pointer' : 'default' }}>▼</button>
+                          <button title="Remove" onClick={e => { e.stopPropagation(); onRemoveSlot(kind, si, li); }} style={slotBtnStyle()}>✕</button>
+                          <button title="Copy this slot" onClick={e => { e.stopPropagation(); onCopySlot(kind, si, li); }} style={slotBtnStyle()}>📋</button>
                         </>
                       )}
                       {showSlotPaste && (
-                        <button title="Paste slot" onClick={e => { e.stopPropagation(); onPasteSlot(kind, si, li); }} style={s(true)}>⬇</button>
+                        <button title="Paste slot" onClick={e => { e.stopPropagation(); onPasteSlot(kind, si, li); }} style={slotBtnStyle(true)}>⬇</button>
                       )}
                     </div>
                   ) : null;
 
                   const row = (
-                    <div key={li} style={{ display: 'flex', alignItems: 'stretch', gap: 3 }}>
+                    <div key={li} style={{ display: 'flex', alignItems: 'stretch', gap: 4 }}>
                       {slotBtn}
                       {actions}
                     </div>
