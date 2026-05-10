@@ -21,7 +21,7 @@ interface Props {
   onCancel?: () => void;
 }
 
-const OPTIMIZER_MODES: { value: OptimizerMode; label: string; speed: string; desc: string }[] = [
+const OPTIMIZER_MODES: { value: OptimizerMode; label: string; speed: string; desc: string; disabled?: boolean }[] = [
   {
     value: 'greedy',
     label: 'Greedy',
@@ -31,14 +31,15 @@ const OPTIMIZER_MODES: { value: OptimizerMode; label: string; speed: string; des
   {
     value: 'tier-enum',
     label: 'Tier Enumeration',
-    speed: 'Fast',
+    speed: 'Slow',
     desc: 'One joint ILP per (attack minTier, defense minTier) pair. Globally optimal within the enumeration (~50–100 MIPs).',
   },
   {
     value: 'joint-mip',
     label: 'Joint MIP',
-    speed: 'Slow',
+    speed: 'Very Slow',
     desc: 'Single large ILP with linearised set-bonus via McCormick constraints. Reference formulation — may be slow in-browser.',
+    disabled: true,
   },
 ];
 
@@ -677,10 +678,11 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading, mod
             <label
               key={m.value}
               style={{
-                display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+                display: 'flex', alignItems: 'flex-start', gap: 8, cursor: m.disabled ? 'not-allowed' : 'pointer',
                 padding: '7px 9px', borderRadius: 6, border: '1px solid',
                 borderColor: mode === m.value ? 'var(--accent)' : 'var(--border)',
                 background: mode === m.value ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)',
+                opacity: m.disabled ? 0.5 : 1,
                 transition: 'border-color 0.12s, background 0.12s',
               }}
             >
@@ -689,7 +691,8 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading, mod
                 name="optimizer-mode"
                 value={m.value}
                 checked={mode === m.value}
-                onChange={() => onModeChange(m.value)}
+                onChange={() => { if (!m.disabled) onModeChange(m.value); }}
+                disabled={m.disabled}
                 style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
               />
               <div>
@@ -698,7 +701,7 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading, mod
                   <span style={{
                     fontSize: 9, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase',
                     padding: '1px 4px', borderRadius: 3,
-                    background: m.speed === 'Fastest' ? '#16a34a' : m.speed === 'Fast' ? '#ca8a04' : '#dc2626',
+                    background: m.speed === 'Fastest' ? '#16a34a' : m.speed === 'Slow' ? '#ca8a04' : '#dc2626',
                     color: '#fff',
                   }}>
                     {m.speed}
