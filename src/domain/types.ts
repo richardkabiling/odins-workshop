@@ -68,6 +68,18 @@ export interface Solution {
 
 export type OptimizeStatus = 'idle' | 'running' | 'done' | 'infeasible' | 'error';
 
+/**
+ * Which optimizer algorithm to use.
+ *
+ *   'greedy'    — Two-step: joint T1 ILP + iterative greedy upgrade. Fastest.
+ *   'tier-enum' — Tier-scenario enumeration: one joint ILP per (minTierA, minTierB)
+ *                 pair, ~50–100 MIPs. Globally optimal within the enumeration.
+ *   'joint-mip' — Single joint MIP with linearised set-bonus via McCormick.
+ *                 ~3 000 binary + ~29 000 continuous variables. Reference formulation;
+ *                 likely slow in-browser.
+ */
+export type OptimizerMode = 'greedy' | 'tier-enum' | 'joint-mip';
+
 export interface InventoryDiagnostic {
   kind: 'attack' | 'defense';
   rarity: Rarity;
@@ -79,3 +91,21 @@ export interface InventoryDiagnostic {
 export type Failure =
   | { kind: 'generic'; message: string }
   | { kind: 'inventory'; diagnostics: InventoryDiagnostic[] };
+
+/** Progress reported by the tier-enum optimizer as scenarios are processed. */
+export interface TierEnumProgress {
+  /** Number of scenarios processed so far (including pruned ones). */
+  done: number;
+  /** Total scenarios after feasibility precheck pruning. */
+  total: number;
+  /** Current best score found, or null if no MIP solution has been found yet. */
+  bestScore: number | null;
+}
+
+/** Options for the top-level optimize() call. Only used by tier-enum mode currently. */
+export interface OptimizeOptions {
+  /** Called each time a scenario completes (pruned or solved). */
+  onProgress?: (p: TierEnumProgress) => void;
+  /** When aborted, the optimizer stops and returns the best solution found so far. */
+  signal?: AbortSignal;
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Inventory, Solution, Failure } from './domain/types';
+import type { Inventory, Solution, Failure, OptimizerMode, TierEnumProgress, OptimizeOptions } from './domain/types';
 import { type StatRanking, DEFAULT_RANKING } from './domain/ranking';
 import { optimize } from './solver/optimize';
 import { InventoryForm } from './ui/InventoryForm';
@@ -25,7 +25,10 @@ export default function App() {
   // Optimizer state
   const [inventory, setInventory] = useState<Inventory>(initialUrl?.inventory ?? DEFAULT_INVENTORY);
   const [ranking, setRanking] = useState<StatRanking>(initialRanking);
+  const [mode, setMode] = useState<OptimizerMode>('greedy');
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<TierEnumProgress | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [solution, setSolution] = useState<Solution | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [formKey, setFormKey] = useState(0);
@@ -56,12 +59,23 @@ export default function App() {
     window.history.replaceState({}, '', `?${qs}`);
   }
 
-  const runOptimize = useCallback(async (inv: Inventory, r: StatRanking) => {
+  const runOptimize = useCallback(async (inv: Inventory, r: StatRanking, m: OptimizerMode) => {
+    // Abort any in-flight run
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
+    setProgress(null);
     setFailure(null);
     setSolution(null);
     try {
-      const result = await optimize(inv, r);
+      const opts: OptimizeOptions = {
+        signal: controller.signal,
+        onProgress: m === 'tier-enum' ? setProgress : undefined,
+      };
+      const result = await optimize(inv, r, m, opts);
+      if (controller.signal.aborted) return; // ignore results if cancelled
       if (result.ok) {
         setSolution(result.solution);
         setFailure(null);
@@ -71,16 +85,29 @@ export default function App() {
         setFailure({ kind: 'generic', message: result.message ?? 'No feasible solution found.' });
       }
     } catch (e) {
-      setFailure({ kind: 'generic', message: String(e) });
+      if (!controller.signal.aborted) {
+        setFailure({ kind: 'generic', message: String(e) });
+      }
     } finally {
       setLoading(false);
+      setProgress(null);
+      abortControllerRef.current = null;
     }
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
+
+  // Abort on unmount
+  useEffect(() => {
+    return () => { abortControllerRef.current?.abort(); };
   }, []);
 
   // Auto-run optimize if URL already has state on initial load
   useEffect(() => {
     if (initialUrl) {
-      runOptimize(initialUrl.inventory, initialRanking).then(() => {
+      runOptimize(initialUrl.inventory, initialRanking, 'greedy').then(() => {
         setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       });
     }
@@ -90,7 +117,7 @@ export default function App() {
   async function handleOptimize() {
     const qs = encodeUrlState({ inventory, ranking });
     pushOptimizeUrl(qs);
-    await runOptimize(inventory, ranking);
+    await runOptimize(inventory, ranking, mode);
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
@@ -182,6 +209,10 @@ export default function App() {
                   onChange={setRanking}
                   onOptimize={handleOptimize}
                   loading={loading}
+                  mode={mode}
+                  onModeChange={setMode}
+                  progress={progress}
+                  onCancel={mode === 'tier-enum' ? handleCancel : undefined}
                 />
               </div>
             </div>

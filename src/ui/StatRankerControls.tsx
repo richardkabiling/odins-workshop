@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useState, useRef, useCallback } from 'react';
-import type { StatKey } from '../domain/types';
+import type { StatKey, OptimizerMode } from '../domain/types';
 import {
   type StatRanking,
   type PresetName,
@@ -15,7 +15,32 @@ interface Props {
   onChange: (r: StatRanking) => void;
   onOptimize: () => void;
   loading: boolean;
+  mode: OptimizerMode;
+  onModeChange: (m: OptimizerMode) => void;
+  progress?: import('../domain/types').TierEnumProgress | null;
+  onCancel?: () => void;
 }
+
+const OPTIMIZER_MODES: { value: OptimizerMode; label: string; speed: string; desc: string }[] = [
+  {
+    value: 'greedy',
+    label: 'Greedy',
+    speed: 'Fastest',
+    desc: 'Joint T1 ILP selects feather identities, then a greedy pass upgrades tiers. Fast and practical.',
+  },
+  {
+    value: 'tier-enum',
+    label: 'Tier Enumeration',
+    speed: 'Fast',
+    desc: 'One joint ILP per (attack minTier, defense minTier) pair. Globally optimal within the enumeration (~50–100 MIPs).',
+  },
+  {
+    value: 'joint-mip',
+    label: 'Joint MIP',
+    speed: 'Slow',
+    desc: 'Single large ILP with linearised set-bonus via McCormick constraints. Reference formulation — may be slow in-browser.',
+  },
+];
 
 const STAT_LABELS: Record<StatKey, string> = {
   PATK: 'P.ATK',
@@ -201,7 +226,7 @@ function dropIntoGroup(
 }
 
 
-export function StatRankerControls({ ranking, onChange, onOptimize, loading }: Props) {
+export function StatRankerControls({ ranking, onChange, onOptimize, loading, mode, onModeChange, progress, onCancel }: Props) {
   const activePreset = detectPreset(ranking);
 
   // Multiselect state
@@ -644,10 +669,96 @@ export function StatRankerControls({ ranking, onChange, onOptimize, loading }: P
         </div>
       </div>
 
+      {/* Optimizer mode selector */}
+      <div>
+        <div style={sectionLabel}>Optimizer</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {OPTIMIZER_MODES.map(m => (
+            <label
+              key={m.value}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+                padding: '7px 9px', borderRadius: 6, border: '1px solid',
+                borderColor: mode === m.value ? 'var(--accent)' : 'var(--border)',
+                background: mode === m.value ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)',
+                transition: 'border-color 0.12s, background 0.12s',
+              }}
+            >
+              <input
+                type="radio"
+                name="optimizer-mode"
+                value={m.value}
+                checked={mode === m.value}
+                onChange={() => onModeChange(m.value)}
+                style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
+              />
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{m.label}</span>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase',
+                    padding: '1px 4px', borderRadius: 3,
+                    background: m.speed === 'Fastest' ? '#16a34a' : m.speed === 'Fast' ? '#ca8a04' : '#dc2626',
+                    color: '#fff',
+                  }}>
+                    {m.speed}
+                  </span>
+                </div>
+                <p style={{ color: 'var(--muted)', fontSize: 10, lineHeight: 1.4, margin: 0 }}>
+                  {m.desc}
+                </p>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Progress bar (only for tier-enum while loading) */}
+      {loading && progress && (
+        <div style={{ marginBottom: 8 }}>
+          <progress
+            value={progress.done}
+            max={progress.total}
+            style={{ width: '100%', accentColor: 'var(--accent)', height: 6 }}
+          />
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, textAlign: 'center' }}>
+            {progress.done} / {progress.total} scenarios
+            {progress.bestScore !== null
+              ? ` · best so far ${progress.bestScore.toFixed(2)}`
+              : ''}
+          </div>
+        </div>
+      )}
+
       {/* Optimize button */}
-      <button className="primary" onClick={onOptimize} disabled={loading}>
-        {loading ? 'Optimizing…' : 'Optimize'}
-      </button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          className="primary"
+          onClick={onOptimize}
+          disabled={loading}
+          style={{ flex: 1 }}
+        >
+          {loading ? 'Optimizing…' : 'Optimize'}
+        </button>
+        {onCancel && loading && (
+          <button
+            onClick={onCancel}
+            style={{
+              padding: '0 14px',
+              fontSize: 13,
+              fontWeight: 600,
+              fontFamily: 'inherit',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              cursor: 'pointer',
+              color: 'var(--muted)',
+            }}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </div>
   );
 }
