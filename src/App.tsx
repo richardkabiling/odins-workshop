@@ -158,6 +158,12 @@ export default function App() {
     window.history.replaceState({}, '', '?tab=simulate');
   }
 
+  function handleCompareClear() {
+    const emptySetups = [makeEmptySetup('Setup A'), makeEmptySetup('Setup B')];
+    setCompareSetups(emptySetups);
+    window.history.replaceState({}, '', '?tab=compare');
+  }
+
   function handleSimInventoryChange(inv: Inventory) {
     setSimInventory(inv);
     replaceSimUrl(inv, attackStatues, defenseStatues);
@@ -281,6 +287,7 @@ export default function App() {
         <CompareView
           setups={compareSetups}
           onSetupsChange={handleCompareSetupsChange}
+          onClear={handleCompareClear}
           clipboard={clipboard}
           setClipboard={setClipboard}
         />

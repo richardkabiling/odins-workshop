@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { FeatherId, ConversionSet, Inventory } from '../domain/types';
 import { feathers, featherById } from '../data/feathers.generated';
 import { featherImages } from './featherImages';
@@ -126,6 +126,9 @@ function FeatherInventoryCard({
 export function InventoryForm({ inventory, onChange, onClear }: Props) {
   const [raw, setRaw] = useState<Partial<Record<FeatherId, string>>>({});
   const [expanded, setExpanded] = useState<Set<ConversionSet>>(new Set());
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function displayValue(id: FeatherId): string {
     if (raw[id] !== undefined) return raw[id]!;
@@ -151,16 +154,69 @@ export function InventoryForm({ inventory, onChange, onClear }: Props) {
     });
   }
 
+  function handleShare() {
+    setShareOpen(true);
+    setCopied(false);
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {shareOpen && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={e => { if (e.target === e.currentTarget) setShareOpen(false); }}
+        >
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, width: 480, maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ margin: 0, fontSize: 15 }}>Share Link</h3>
+              <button
+                onClick={() => setShareOpen(false)}
+                style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--muted)', lineHeight: 1 }}
+                aria-label="Close"
+              >✕</button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                readOnly
+                value={window.location.href}
+                style={{ flex: 1, fontSize: 12, padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', color: 'var(--text)', fontFamily: 'monospace' }}
+                onFocus={e => e.target.select()}
+              />
+              <button
+                onClick={handleCopy}
+                title={copied ? 'Copied!' : 'Copy to clipboard'}
+                style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, background: copied ? '#22c55e' : 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.2s' }}
+              >
+                {copied ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h2 style={{ margin: 0 }}>Feather Inventory</h2>
-        <button
-          onClick={onClear}
-          style={{ fontSize: 12, padding: '4px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--muted)', cursor: 'pointer' }}
-        >
-          Clear
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={handleShare}
+            style={{ fontSize: 12, padding: '4px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--muted)', cursor: 'pointer' }}
+          >
+            Share
+          </button>
+          <button
+            onClick={onClear}
+            style={{ fontSize: 12, padding: '4px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--muted)', cursor: 'pointer' }}
+          >
+            Clear
+          </button>
+        </div>
       </div>
       <p style={{ color: 'var(--muted)', fontSize: 12, lineHeight: 1.4 }}>
         Enter Tier-1 feather counts. Hover an image to see its T1 stats. Feathers in the same set are pooled freely.

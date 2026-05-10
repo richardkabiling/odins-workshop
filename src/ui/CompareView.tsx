@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { FeatherId, StatKey, FeatherDef } from '../domain/types';
 import { feathers, featherById } from '../data/feathers.generated';
 import { getAttackBonus, getDefenseBonus } from '../data/setBonuses.generated';
@@ -75,6 +75,7 @@ interface PickerTarget {
 interface Props {
   setups: CompareSetup[];
   onSetupsChange: (next: CompareSetup[]) => void;
+  onClear: () => void;
   clipboard: Clipboard | null;
   setClipboard: (c: Clipboard | null) => void;
 }
@@ -85,10 +86,26 @@ function makeEmptySetup(name: string): CompareSetup {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function CompareView({ setups, onSetupsChange, clipboard, setClipboard }: Props) {
+export function CompareView({ setups, onSetupsChange, onClear, clipboard, setClipboard }: Props) {
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
   const [pickerFeather, setPickerFeather] = useState<FeatherId | null>(null);
   const [pickerTier, setPickerTier] = useState<number>(1);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleShare() {
+    setShareOpen(true);
+    setCopied(false);
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   // ── Setup mutations ───────────────────────────────────────────────────────
 
@@ -255,23 +272,71 @@ export function CompareView({ setups, onSetupsChange, clipboard, setClipboard }:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
+      {/* Share modal */}
+      {shareOpen && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={e => { if (e.target === e.currentTarget) setShareOpen(false); }}
+        >
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, width: 480, maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ margin: 0, fontSize: 15 }}>Share Link</h3>
+              <button
+                onClick={() => setShareOpen(false)}
+                style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--muted)', lineHeight: 1 }}
+                aria-label="Close"
+              >✕</button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                readOnly
+                value={window.location.href}
+                style={{ flex: 1, fontSize: 12, padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', color: 'var(--text)', fontFamily: 'monospace' }}
+                onFocus={e => e.target.select()}
+              />
+              <button
+                onClick={handleCopy}
+                title={copied ? 'Copied!' : 'Copy to clipboard'}
+                style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, background: copied ? '#22c55e' : 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.2s' }}
+              >
+                {copied ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <p style={{ color: 'var(--muted)', fontSize: 13 }}>
           Compare up to 4 feather setups side-by-side.
         </p>
-        {setups.length < 4 && (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <button
-            onClick={addSetup}
-            style={{
-              fontSize: 12, padding: '5px 14px', borderRadius: 6,
-              background: 'var(--accent)', color: '#fff',
-              border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
-            }}
+            onClick={handleShare}
+            style={{ fontSize: 12, padding: '4px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--muted)', cursor: 'pointer' }}
           >
-            + Add Setup
+            Share
           </button>
-        )}
+          <button
+            onClick={onClear}
+            style={{ fontSize: 12, padding: '4px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--muted)', cursor: 'pointer' }}
+          >
+            Clear
+          </button>
+          {setups.length < 4 && (
+            <button
+              onClick={addSetup}
+              style={{
+                fontSize: 12, padding: '5px 14px', borderRadius: 6,
+                background: 'var(--accent)', color: '#fff',
+                border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+              }}
+            >
+              + Add Setup
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Setup columns */}
