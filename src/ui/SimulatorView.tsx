@@ -77,6 +77,21 @@ export function SimulatorView({
   const [pickerFeather, setPickerFeather] = useState<FeatherId | null>(null);
   const [pickerTier, setPickerTier] = useState<number>(1);
   const [ignoreLimits, setIgnoreLimits] = useState(false);
+  const [copySource, setCopySource] = useState<{ kind: 'attack' | 'defense'; statueIdx: number } | null>(null);
+
+  function handleCopy(kind: 'attack' | 'defense', statueIdx: number) {
+    setCopySource(prev =>
+      prev?.kind === kind && prev.statueIdx === statueIdx ? null : { kind, statueIdx },
+    );
+  }
+
+  function handlePaste(kind: 'attack' | 'defense', statueIdx: number) {
+    if (!copySource || copySource.kind !== kind) return;
+    const src = getStatues(kind)[copySource.statueIdx];
+    setStatues(kind, getStatues(kind).map((s, i) => i === statueIdx ? [...src] : s));
+    setCopySource(null);
+    setPickerTarget(null);
+  }
 
   // ── Statue mutation helpers ─────────────────────────────────────────────
 
@@ -275,6 +290,10 @@ export function SimulatorView({
                   : null
               }
               onSlotClick={slotIdx => openPicker('attack', i, slotIdx)}
+              isCopySource={copySource?.kind === 'attack' && copySource.statueIdx === i}
+              isPasteTarget={copySource?.kind === 'attack' && copySource.statueIdx !== i}
+              onCopy={() => handleCopy('attack', i)}
+              onPaste={() => handlePaste('attack', i)}
             />
           ))}
         </div>
@@ -296,6 +315,10 @@ export function SimulatorView({
                   : null
               }
               onSlotClick={slotIdx => openPicker('defense', i, slotIdx)}
+              isCopySource={copySource?.kind === 'defense' && copySource.statueIdx === i}
+              isPasteTarget={copySource?.kind === 'defense' && copySource.statueIdx !== i}
+              onCopy={() => handleCopy('defense', i)}
+              onPaste={() => handlePaste('defense', i)}
             />
           ))}
         </div>
@@ -563,12 +586,17 @@ export function SimulatorView({
 
 function StatueSimCard({
   index, kind, statue, selectedSlot, onSlotClick,
+  isCopySource, isPasteTarget, onCopy, onPaste,
 }: {
   index: number;
   kind: 'attack' | 'defense';
   statue: SimStatue;
   selectedSlot: number | null;
   onSlotClick: (slotIdx: number) => void;
+  isCopySource: boolean;
+  isPasteTarget: boolean;
+  onCopy: () => void;
+  onPaste: () => void;
 }) {
   const tpl = statueTemplate(statue);
   const bonus = tpl
@@ -612,13 +640,43 @@ function StatueSimCard({
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 0, fontSize: 12 }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <h3>#{index}</h3>
-        {tpl && (
-          <span style={{ background: 'var(--surface2)', borderRadius: 4, padding: '1px 6px', fontSize: 11 }}>
-            T{tpl.minTier} set
-          </span>
-        )}
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          {tpl && (
+            <span style={{ background: 'var(--surface2)', borderRadius: 4, padding: '1px 6px', fontSize: 11 }}>
+              T{tpl.minTier} set
+            </span>
+          )}
+          {isPasteTarget ? (
+            <button
+              onClick={onPaste}
+              title="Paste copied statue here"
+              style={{
+                fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+                background: 'var(--accent)', color: '#fff',
+                border: '1.5px solid var(--accent)', cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              Paste
+            </button>
+          ) : (
+            <button
+              onClick={onCopy}
+              title={isCopySource ? 'Cancel copy' : 'Copy this statue'}
+              style={{
+                fontSize: 11, padding: '2px 6px', borderRadius: 4,
+                background: isCopySource ? 'var(--accent)' : 'var(--surface2)',
+                color: isCopySource ? '#fff' : 'var(--muted)',
+                border: `1.5px solid ${isCopySource ? 'var(--accent)' : 'var(--border)'}`,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {isCopySource ? '✕ Cancel' : 'Copy'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Feather slots */}
