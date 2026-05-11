@@ -11,7 +11,6 @@ import { InventoryForm } from './InventoryForm';
 import {
   JsonModal, type JsonModalState,
   serializeStatue, serializeKind, serializeAll,
-  parseStatue, parseKind, parseAll,
 } from './jsonImportExport';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
